@@ -1,10 +1,15 @@
 """API routes. Endpoints stay thin: validation lives in schemas (Pydantic),
 ML logic lives in SentimentModel — routes just wire the two together."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+import csv
+import io
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 from app.model import SentimentModel
 from app.schemas import (
+    MAX_BATCH,
+    MAX_CHARS,
     AnalyzeRequest,
     AnalyzeResponse,
     BatchRequest,
@@ -63,4 +68,41 @@ def analyze_batch(req: BatchRequest, model: SentimentModel = Depends(get_model))
     # for why that beats a per-text loop.
     results = model.predict(req.texts)
     items = [{"text": t, **r} for t, r in zip(req.texts, results)]
+    return {"results": items, "aggregates": aggregate(results)}
+
+
+@router.post("/analyze/csv", response_model=BatchResponse)
+async def analyze_csv(file: UploadFile = File(...), model: SentimentModel = Depends(get_model)):
+    """CSV variant of batch analysis. File parsing is inherently messier than
+    JSON, so each failure mode gets its own explicit 400 — the caller should
+    always learn WHY their file was rejected."""
+    raw = await file.read()
+    try:
+        # utf-8-sig also swallows the BOM that Excel loves to prepend.
+        text_stream = io.StringIO(raw.decode("utf-8-sig"))
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="File must be UTF-8 encoded")
+
+    reader = csv.DictReader(text_stream)
+    if not reader.fieldnames or "text" not in reader.fieldnames:
+        raise HTTPException(status_code=400, detail="CSV must have a 'text' column")
+
+    texts: list[str] = []
+    for i, row in enumerate(reader):
+        if i >= MAX_BATCH:
+            raise HTTPException(status_code=400, detail=f"CSV exceeds {MAX_BATCH} row limit")
+        t = (row.get("text") or "").strip()
+        if len(t) > MAX_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Row {i + 2} exceeds {MAX_CHARS} characters",
+            )
+        if t:
+            texts.append(t)
+
+    if not texts:
+        raise HTTPException(status_code=400, detail="No non-empty rows found")
+
+    results = model.predict(texts)
+    items = [{"text": t, **r} for t, r in zip(texts, results)]
     return {"results": items, "aggregates": aggregate(results)}
