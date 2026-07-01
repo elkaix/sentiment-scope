@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.model import SentimentModel
+from app.model_registry import ModelTask, get_default_model_id
 from app.routes import router
 
 
@@ -30,6 +31,10 @@ async def lifespan(app: FastAPI):
     # Tests set SKIP_MODEL_LOAD=1 so the suite runs in milliseconds without torch.
     if os.getenv("SKIP_MODEL_LOAD") != "1":
         model.load()
+        # Seed the eagerly-loaded default into the lazy cache so /api/compare
+        # shares this ONE copy of the ~500MB weights instead of loading a second.
+        # Only after a real load — an unloaded model here would poison the cache.
+        app.state.model_cache[get_default_model_id(ModelTask.SENTIMENT)] = model
     yield
 
 

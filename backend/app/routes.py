@@ -3,14 +3,16 @@ ML logic lives in SentimentModel — routes just wire the two together."""
 
 import csv
 import io
+import time
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
-from app.model import SentimentModel
+from app.model import SentimentModel, get_or_load_model
 from app.model_registry import (
     MODEL_REGISTRY,
     ModelTask,
     get_default_model_id,
+    get_model_config,
     models_for_task,
 )
 from app.schemas import (
@@ -20,6 +22,8 @@ from app.schemas import (
     AnalyzeResponse,
     BatchRequest,
     BatchResponse,
+    CompareRequest,
+    CompareResponse,
     ExplainResponse,
 )
 
@@ -28,6 +32,9 @@ router = APIRouter(prefix="/api")
 LABELS = ("negative", "neutral", "positive")
 EXPLAIN_MODEL_ID = "twitter-roberta"
 DEFAULT_SENTIMENT_MODEL_ID = get_default_model_id(ModelTask.SENTIMENT)
+# Compare only two models by default: loading all four registry models on the
+# first call would download/hold ~2GB and feel broken in a portfolio demo.
+DEFAULT_COMPARE_MODELS = ["twitter-roberta", "distilbert-sst2"]
 
 
 def reject_non_default_model_id(model_id: str | None) -> None:
@@ -193,6 +200,61 @@ def explain(
             detail="Explainability is currently supported only for twitter-roberta",
         )
     return model.explain(req.text)
+
+
+@router.post("/compare", response_model=CompareResponse)
+async def compare(req: CompareRequest, request: Request):
+    """Run one input through several sentiment models and return them side by side.
+
+    This endpoint is intentionally plain: it teaches domain mismatch, label
+    mismatch, confidence, and latency tradeoffs better than another chart. Each
+    row carries the model's own label keys (binary models never fake a neutral),
+    its winning-class confidence, and a per-model wall-clock latency.
+    """
+    model_ids = req.model_ids or DEFAULT_COMPARE_MODELS
+
+    # Validate every id BEFORE loading any weights — fail fast at the boundary
+    # so a bad id never costs a multi-hundred-MB load first.
+    configs = []
+    for model_id in model_ids:
+        try:
+            cfg = get_model_config(model_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown model_id '{model_id}'. See /api/models for sentiment models.",
+            )
+        if cfg.task != ModelTask.SENTIMENT:
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{model_id}' is a {cfg.task.value} model; "
+                "/api/compare accepts sentiment models only.",
+            )
+        configs.append((model_id, cfg))
+
+    results = []
+    for model_id, cfg in configs:
+        model = await get_or_load_model(request.app, model_id)
+        # perf_counter is monotonic — the correct clock for measuring a duration.
+        start = time.perf_counter()
+        prediction = model.predict([req.text])[0]
+        latency_ms = (time.perf_counter() - start) * 1000
+        scores = prediction["scores"]
+        results.append(
+            {
+                "model_id": model_id,
+                "name": cfg.name,
+                "domain": cfg.domain,
+                "label": prediction["label"],
+                "scores": scores,
+                # Confidence is just the winning class probability. No extra
+                # rounding — predict() already rounds scores to 4 decimals.
+                "confidence": max(scores.values()),
+                "latency_ms": latency_ms,
+                "note": cfg.note,
+            }
+        )
+    return {"results": results}
 
 
 @router.get("/model")

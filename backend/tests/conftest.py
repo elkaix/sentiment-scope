@@ -58,3 +58,29 @@ def client_with_model():
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+class FakeBinaryModel:
+    """Binary sentiment stand-in (DistilBERT-SST2 shape): negative/positive
+    only, no neutral. Lets compare tests prove that a 2-class model emits just
+    its own label keys — never a faked neutral score."""
+
+    is_loaded = True
+    device = "cpu"
+    labels = ["negative", "positive"]
+
+    def predict(self, texts):
+        return [
+            {"label": "negative", "scores": {"negative": 0.7, "positive": 0.3}}
+            for _ in texts
+        ]
+
+
+@pytest.fixture
+def client_with_compare_models(client):
+    """Seed the lazy cache with fakes so /api/compare runs without real weights.
+    get_or_load_model checks app.state.model_cache first, so a pre-seeded entry
+    short-circuits the ~500MB load — no torch, still exercises the cache path."""
+    client.app.state.model_cache["twitter-roberta"] = FakeModel()
+    client.app.state.model_cache["distilbert-sst2"] = FakeBinaryModel()
+    return client

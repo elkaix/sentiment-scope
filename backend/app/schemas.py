@@ -86,3 +86,23 @@ class DynamicAnalyzeResponse(BaseModel):
 
     label: str
     scores: dict[str, float]
+
+
+class CompareRequest(AnalyzeRequest):
+    # Omit model_ids to compare the default lineup (see routes.DEFAULT_COMPARE_MODELS).
+    model_ids: list[str] | None = None
+
+
+class CompareItem(DynamicAnalyzeResponse):
+    # Extends DynamicAnalyzeResponse (dict scores) so a binary model keeps its
+    # own label keys — no faked neutral — while a 3-class model keeps all three.
+    model_id: str
+    name: str
+    domain: str
+    confidence: float
+    latency_ms: float
+    note: str
+
+
+class CompareResponse(BaseModel):
+    results: list[CompareItem]
