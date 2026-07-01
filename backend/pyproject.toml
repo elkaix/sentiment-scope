@@ -1,0 +1,12 @@
+[tool.pytest.ini_options]
+markers = [
+    "integration: needs the real model downloaded — run locally, excluded by default",
+]
+# Integration tests are opt-in: plain `pytest` (and CI) skips them.
+addopts = "-m 'not integration'"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
