@@ -11,18 +11,37 @@ Design notes (the "why", since the "what" is short):
   loads. CI runs the whole API test suite without torch installed.
 """
 
+import asyncio
+from typing import Protocol
+
+from app.model_registry import (
+    ModelConfig,
+    ModelTask,
+    get_default_model_id,
+    get_model_config,
+    resolve_model_source,
+)
+
 
 class SentimentModel:
     # A RoBERTa-base encoder fine-tuned on ~124M tweets for 3-class sentiment.
+    # Kept as a class constant for backward compatibility (Tasks 1–7 / /api/model);
+    # per-instance model choice now flows through the registry ModelConfig below.
     MODEL_NAME = "cardiffnlp/twitter-roberta-base-sentiment-latest"
     # RoBERTa's positional embeddings cap sequence length; longer inputs are truncated.
     MAX_TOKENS = 512
 
-    def __init__(self) -> None:
+    def __init__(self, config: ModelConfig | None = None) -> None:
+        # Default to the registry's sentiment default so `SentimentModel()`
+        # (no args) still means twitter-roberta, exactly as in Tasks 1–7.
+        self._config = config or get_model_config(get_default_model_id(ModelTask.SENTIMENT))
+        self.model_name = self._config.name
         self._tokenizer = None
         self._model = None
         self.device: str | None = None
-        self.labels: list[str] = []
+        # Canonical labels from the registry — available before load() and
+        # decoupled from raw HF config.id2label casing/order.
+        self.labels: list[str] = list(self._config.labels)
 
     @property
     def is_loaded(self) -> bool:
@@ -35,16 +54,19 @@ class SentimentModel:
 
         # Apple Silicon GPU (MPS) when available; plain CPU in Docker/CI.
         self.device = "mps" if torch.backends.mps.is_available() else "cpu"
-        self._tokenizer = AutoTokenizer.from_pretrained(self.MODEL_NAME)
-        self._model = AutoModelForSequenceClassification.from_pretrained(self.MODEL_NAME)
+        # Local weights dir if it exists, HF Hub name otherwise — never let a
+        # missing local folder break a fresh clone or the Docker build.
+        source = resolve_model_source(self._config)
+        self._tokenizer = AutoTokenizer.from_pretrained(source)
+        self._model = AutoModelForSequenceClassification.from_pretrained(source)
         self._model.to(self.device)
         # eval() disables dropout etc. — we want deterministic inference, not training.
         self._model.eval()
-        # Read label names from the model config instead of hardcoding:
-        # id2label = {0: "negative", 1: "neutral", 2: "positive"} for this model.
-        self.labels = [
-            self._model.config.id2label[i] for i in range(self._model.config.num_labels)
-        ]
+        # Canonical label names from the registry — NOT config.id2label. HF
+        # DistilBERT reports NEGATIVE/POSITIVE (uppercase) and FinBERT's index
+        # order differs; the registry tuple is the single source of truth so
+        # API score keys stay stable across models.
+        self.labels = list(self._config.labels)
 
     def predict(self, texts: list[str]) -> list[dict]:
         """Classify a batch of texts. The full flow, spelled out:
@@ -148,3 +170,45 @@ class SentimentModel:
             if tok not in special
         ]
         return {**prediction, "tokens": token_attrs}
+
+
+class BaseTextModel(Protocol):
+    """What the cache and routes actually need from a model. SentimentModel
+    satisfies this today; DetectorModel (Task 19) will too. The cache must
+    not assume every model is a SentimentModel — detector checkpoints have
+    different architectures and output heads."""
+
+    labels: list[str]
+    device: str | None
+    is_loaded: bool
+
+    def load(self) -> None: ...
+    def predict(self, texts: list[str]) -> list[dict]: ...
+
+
+def build_model(cfg: ModelConfig) -> BaseTextModel:
+    if cfg.task == ModelTask.SENTIMENT:
+        return SentimentModel(cfg)
+    if cfg.task == ModelTask.AI_TEXT_DETECTION:
+        # Task 19 replaces this with DetectorModel(cfg). Failing loudly now
+        # beats silently mis-loading a custom-architecture detector.
+        raise NotImplementedError("DetectorModel arrives in Task 19")
+    raise ValueError(f"Unsupported model task: {cfg.task}")
+
+
+async def get_or_load_model(app, model_id: str) -> BaseTextModel:
+    if model_id in app.state.model_cache:
+        return app.state.model_cache[model_id]
+    if model_id not in app.state.model_locks:
+        app.state.model_locks[model_id] = asyncio.Lock()
+    async with app.state.model_locks[model_id]:
+        # Double-checked: another coroutine may have finished loading while we
+        # awaited the lock, so re-check the cache before paying to load again.
+        if model_id not in app.state.model_cache:
+            cfg = get_model_config(model_id)
+            m = build_model(cfg)
+            # ~500MB of weights load synchronously; run it off the event loop
+            # so other requests (health, in-flight analyze) stay responsive.
+            await asyncio.to_thread(m.load)
+            app.state.model_cache[model_id] = m
+        return app.state.model_cache[model_id]

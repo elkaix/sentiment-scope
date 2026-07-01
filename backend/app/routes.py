@@ -7,6 +7,12 @@ import io
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 from app.model import SentimentModel
+from app.model_registry import (
+    MODEL_REGISTRY,
+    ModelTask,
+    get_default_model_id,
+    models_for_task,
+)
 from app.schemas import (
     MAX_BATCH,
     MAX_CHARS,
@@ -21,6 +27,19 @@ router = APIRouter(prefix="/api")
 
 LABELS = ("negative", "neutral", "positive")
 EXPLAIN_MODEL_ID = "twitter-roberta"
+DEFAULT_SENTIMENT_MODEL_ID = get_default_model_id(ModelTask.SENTIMENT)
+
+
+def reject_non_default_model_id(model_id: str | None) -> None:
+    """analyze/batch/csv are twitter-roberta only. A stray model_id (e.g. the
+    binary distilbert) is refused early — its 2-class output would break the
+    strict 3-class Scores schema. Other models live on /api/compare (Task 9)."""
+    if model_id and model_id != DEFAULT_SENTIMENT_MODEL_ID:
+        raise HTTPException(
+            status_code=400,
+            detail="This endpoint uses the default twitter-roberta model only. "
+            "Use /api/compare for other models.",
+        )
 
 
 def aggregate(results: list[dict]) -> dict:
@@ -58,14 +77,59 @@ def health(request: Request):
     return {"status": "ok", "model_loaded": model.is_loaded, "device": model.device}
 
 
+@router.get("/models")
+def list_models(request: Request, task: ModelTask | None = None):
+    """Registry metadata for every model, plus a live `loaded` flag. Optional
+    ?task=sentiment|ai_text_detection narrows the list.
+
+    Reads app.state directly (like /health) instead of Depends(get_model): the
+    catalog must work even before any weights load, and get_model would 503
+    the whole list whenever the default model isn't loaded (e.g. under tests)."""
+    cache = request.app.state.model_cache
+    default_model = request.app.state.model
+    configs = models_for_task(task) if task is not None else MODEL_REGISTRY
+
+    def is_loaded(model_id: str) -> bool:
+        # Optional models live in the lazy cache; the default sentiment model
+        # is eagerly loaded into app.state.model at startup.
+        if model_id in cache:
+            return True
+        return model_id == DEFAULT_SENTIMENT_MODEL_ID and default_model.is_loaded
+
+    models = [
+        {
+            "id": cfg.id,
+            "name": cfg.name,
+            "task": cfg.task.value,  # StrEnum -> "sentiment", not "ModelTask.SENTIMENT"
+            "labels": list(cfg.labels),
+            "domain": cfg.domain,
+            "note": cfg.note,
+            "default": cfg.default,
+            "loaded": is_loaded(model_id),
+        }
+        for model_id, cfg in configs.items()
+    ]
+    return {"models": models}
+
+
 @router.post("/analyze", response_model=AnalyzeResponse)
-def analyze(req: AnalyzeRequest, model: SentimentModel = Depends(get_model)):
+def analyze(
+    req: AnalyzeRequest,
+    model_id: str | None = None,
+    model: SentimentModel = Depends(get_model),
+):
+    reject_non_default_model_id(model_id)
     # predict() is batched by design; a single text is just a batch of one.
     return model.predict([req.text])[0]
 
 
 @router.post("/analyze/batch", response_model=BatchResponse)
-def analyze_batch(req: BatchRequest, model: SentimentModel = Depends(get_model)):
+def analyze_batch(
+    req: BatchRequest,
+    model_id: str | None = None,
+    model: SentimentModel = Depends(get_model),
+):
+    reject_non_default_model_id(model_id)
     # ONE batched model call for the whole list — see predict()'s docstring
     # for why that beats a per-text loop.
     results = model.predict(req.texts)
@@ -74,10 +138,15 @@ def analyze_batch(req: BatchRequest, model: SentimentModel = Depends(get_model))
 
 
 @router.post("/analyze/csv", response_model=BatchResponse)
-async def analyze_csv(file: UploadFile = File(...), model: SentimentModel = Depends(get_model)):
+async def analyze_csv(
+    file: UploadFile = File(...),
+    model_id: str | None = None,
+    model: SentimentModel = Depends(get_model),
+):
     """CSV variant of batch analysis. File parsing is inherently messier than
     JSON, so each failure mode gets its own explicit 400 — the caller should
     always learn WHY their file was rejected."""
+    reject_non_default_model_id(model_id)
     raw = await file.read()
     try:
         # utf-8-sig also swallows the BOM that Excel loves to prepend.

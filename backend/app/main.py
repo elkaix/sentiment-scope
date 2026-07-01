@@ -16,10 +16,17 @@ from app.routes import router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load the model ONCE for the process lifetime. Every request shares it —
-    # safe because inference is read-only (no weight mutation after eval()).
+    # Load the default model ONCE for the process lifetime. Every request
+    # shares it — safe because inference is read-only (no weight mutation
+    # after eval()).
     model = SentimentModel()
     app.state.model = model
+    # Optional registry models (for /api/compare, Task 9) are loaded lazily on
+    # first use and memoized here — loading all four transformers at startup
+    # would blow up memory on a laptop. The per-model locks stop two concurrent
+    # requests from loading the same weights twice. See app.model.get_or_load_model.
+    app.state.model_cache = {}
+    app.state.model_locks = {}
     # Tests set SKIP_MODEL_LOAD=1 so the suite runs in milliseconds without torch.
     if os.getenv("SKIP_MODEL_LOAD") != "1":
         model.load()

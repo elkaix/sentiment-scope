@@ -5,6 +5,8 @@ Requires the `ai` conda env (torch + transformers installed, weights cached).
 
 import pytest
 
+from app.model_registry import ModelTask, models_for_task
+
 
 @pytest.mark.integration
 def test_predict_on_obvious_sentiment():
@@ -34,3 +36,16 @@ def test_explain_highlights_sentiment_words():
     attrs = {t["token"].strip().lower(): t["attribution"] for t in out["tokens"]}
     # "love" should drive the positive prediction more than the stopword "this".
     assert attrs["love"] > attrs["this"]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("model_id", list(models_for_task(ModelTask.SENTIMENT).keys()))
+def test_registry_model_score_keys_match_config(model_id):
+    from app.model import SentimentModel
+    from app.model_registry import get_model_config
+
+    cfg = get_model_config(model_id)
+    m = SentimentModel(cfg)
+    m.load()
+    out = m.predict(["This is good."])[0]
+    assert tuple(out["scores"].keys()) == cfg.labels
