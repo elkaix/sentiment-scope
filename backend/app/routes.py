@@ -4,9 +4,33 @@ ML logic lives in SentimentModel — routes just wire the two together."""
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.model import SentimentModel
-from app.schemas import AnalyzeRequest, AnalyzeResponse
+from app.schemas import (
+    AnalyzeRequest,
+    AnalyzeResponse,
+    BatchRequest,
+    BatchResponse,
+)
 
 router = APIRouter(prefix="/api")
+
+LABELS = ("negative", "neutral", "positive")
+
+
+def aggregate(results: list[dict]) -> dict:
+    """Summarize a batch: label counts + mean per-class probability.
+    Plain Python (no numpy) on purpose — for ≤500 rows this is instant, and
+    the arithmetic stays readable for anyone auditing the math."""
+    counts = {label: 0 for label in LABELS}
+    sums = dict.fromkeys(LABELS, 0.0)
+    for r in results:
+        counts[r["label"]] += 1
+        for label, score in r["scores"].items():
+            sums[label] += score
+    n = len(results)
+    return {
+        "counts": counts,
+        "mean_scores": {label: round(s / n, 4) for label, s in sums.items()},
+    }
 
 
 def get_model(request: Request) -> SentimentModel:
@@ -31,3 +55,12 @@ def health(request: Request):
 def analyze(req: AnalyzeRequest, model: SentimentModel = Depends(get_model)):
     # predict() is batched by design; a single text is just a batch of one.
     return model.predict([req.text])[0]
+
+
+@router.post("/analyze/batch", response_model=BatchResponse)
+def analyze_batch(req: BatchRequest, model: SentimentModel = Depends(get_model)):
+    # ONE batched model call for the whole list — see predict()'s docstring
+    # for why that beats a per-text loop.
+    results = model.predict(req.texts)
+    items = [{"text": t, **r} for t, r in zip(req.texts, results)]
+    return {"results": items, "aggregates": aggregate(results)}
