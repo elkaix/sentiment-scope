@@ -14,11 +14,13 @@ from app.schemas import (
     AnalyzeResponse,
     BatchRequest,
     BatchResponse,
+    ExplainResponse,
 )
 
 router = APIRouter(prefix="/api")
 
 LABELS = ("negative", "neutral", "positive")
+EXPLAIN_MODEL_ID = "twitter-roberta"
 
 
 def aggregate(results: list[dict]) -> dict:
@@ -106,3 +108,33 @@ async def analyze_csv(file: UploadFile = File(...), model: SentimentModel = Depe
     results = model.predict(texts)
     items = [{"text": t, **r} for t, r in zip(texts, results)]
     return {"results": items, "aggregates": aggregate(results)}
+
+
+@router.post("/explain", response_model=ExplainResponse)
+def explain(
+    req: AnalyzeRequest,
+    model_id: str | None = None,
+    model: SentimentModel = Depends(get_model),
+):
+    # IG runs one forward pass per integration step (50x slower than
+    # /analyze) — that's why explanation is a separate, opt-in endpoint.
+    if model_id and model_id != EXPLAIN_MODEL_ID:
+        raise HTTPException(
+            status_code=400,
+            detail="Explainability is currently supported only for twitter-roberta",
+        )
+    return model.explain(req.text)
+
+
+@router.get("/model")
+def model_info(model: SentimentModel = Depends(get_model)):
+    return {
+        "name": SentimentModel.MODEL_NAME,
+        "labels": model.labels,
+        "max_tokens": SentimentModel.MAX_TOKENS,
+        "device": model.device,
+        "description": (
+            "RoBERTa-base fine-tuned on ~124M tweets (2018-2021) for 3-class "
+            "sentiment classification, by Cardiff NLP."
+        ),
+    }
