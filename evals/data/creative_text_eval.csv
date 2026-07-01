@@ -1,0 +1,20 @@
+id,text,true_label,category,notes
+1,Crafted from aerospace-grade aluminum for a device that feels as good as it performs,positive,product_copy,polished marketing polarity
+2,Unbox brilliance and never look back,positive,product_copy,hype copy
+3,Just landed my dream job and I cannot stop smiling,positive,social_post,enthusiastic social
+4,Stuck in traffic for the third hour today send help,negative,social_post,venting social
+5,The old house sighed as the last light drained from its windows,negative,short_story,literary melancholy
+6,She laughed for the first time in months and the room felt lighter,positive,short_story,literary uplift
+7,Fantastic the printer jammed again right before the deadline,negative,sarcasm,sarcastic frustration
+8,Loved every second of being put on hold said no one ever,negative,sarcasm,sarcastic complaint
+9,I am proud of what we built even though it nearly broke me,neutral,mixed_emotion,pride and exhaustion
+10,Grateful for the memories but heartbroken to see it end,neutral,mixed_emotion,bittersweet
+11,Transform your mornings with the coffee maker everyone is talking about,positive,marketing_headline,promotional
+12,The upgrade nobody asked for and everybody regrets,negative,marketing_headline,cynical headline
+13,I have been waiting a week for a refund and no one will help me,negative,support_complaint,frustrated customer
+14,The API returns a 200 status code with a JSON payload on success,neutral,technical_writing,factual technical
+15,The function iterates over the array and returns the sum,neutral,technical_writing,factual technical
+16,Quarterly earnings beat analyst expectations sending shares higher,positive,finance_news,positive finance
+17,Regulators opened an investigation into the firm accounting practices,negative,finance_news,negative finance
+18,It is what it is,neutral,ambiguous_phrase,resigned ambiguity
+19,Well that happened,neutral,ambiguous_phrase,ambiguous reaction

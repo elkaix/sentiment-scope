@@ -1,0 +1,17 @@
+id,text,true_label,category,notes
+1,I do not dislike it,positive,double_negation,two negations cancel
+2,This is not the worst thing I have bought,neutral,negation,faint praise
+3,GREAT. JUST GREAT.,negative,all_caps_sarcasm,caps sarcasm
+4,Wow.,neutral,very_short,ambiguous single word
+5,love it 😍,positive,emoji,emoji sentiment
+6,worst 🙃,negative,emoji,emoji sarcasm
+7,Why would anyone think this is a good idea,negative,rhetorical,rhetorical negative
+8,Not gonna lie this slaps,positive,slang,positive slang
+9,It works but I would not buy it again,negative,contrast,leans negative
+10,Better than nothing I suppose,neutral,understatement,lukewarm
+11,The service was okay nothing special,neutral,understatement,neutral lukewarm
+12,I have seen worse honestly,neutral,comparative,faint approval
+13,Absolutely nothing about this was enjoyable,negative,intensifier,emphatic negative
+14,Ten out of ten would recommend,positive,intensifier,emphatic positive
+15,Its fine.,neutral,very_short,terse neutral
+16,Do not waste your time,negative,imperative,warning negative

@@ -1,0 +1,37 @@
+id,text,true_label,category,notes
+1,The battery life is incredible,positive,product_review,clear positive
+2,"Not bad, not great",neutral,ambiguous,mixed phrase
+3,I love the design but the app keeps crashing,neutral,mixed,multi-sentiment
+4,"Yeah, amazing, another crash",negative,sarcasm,sarcastic negative
+5,Our quarterly revenue outlook improved,positive,finance,domain-specific
+6,This headline is emotionally neutral,neutral,formal,low sentiment
+7,Absolutely the best purchase I have made this year,positive,product_review,clear positive
+8,The staff were friendly and the service was fast,positive,service,clear positive
+9,I am thrilled with how well this works,positive,general,clear positive
+10,This is the worst experience I have ever had,negative,service,clear negative
+11,The screen cracked after one day of normal use,negative,product_review,clear negative
+12,Terrible quality and a complete waste of money,negative,product_review,clear negative
+13,The package arrived on Tuesday afternoon,neutral,logistics,factual statement
+14,The device weighs about two hundred grams,neutral,technical,factual statement
+15,The meeting is scheduled for 3 pm on Friday,neutral,logistics,factual statement
+16,This is not a bad phone at all,positive,negation,negation flips polarity
+17,I would not say I am happy with the results,negative,negation,negated positive
+18,There is nothing wrong with the food here,positive,negation,double negation
+19,Oh great another software update that breaks everything,negative,sarcasm,sarcastic negative
+20,Wow what a fantastic way to waste an afternoon,negative,sarcasm,sarcastic negative
+21,"Sure, because waiting two hours is exactly what I wanted",negative,sarcasm,sarcastic negative
+22,The food was delicious but the wait was unbearable,neutral,mixed,multi-sentiment
+23,Great camera though the battery drains too fast,neutral,mixed,multi-sentiment
+24,I like the concept but the execution is disappointing,negative,mixed,leans negative
+25,Shares tumbled after the company missed earnings estimates,negative,finance,domain-specific
+26,The central bank held interest rates steady this quarter,neutral,finance,factual finance
+27,Profits surged to a record high last quarter,positive,finance,domain-specific
+28,It is fine I guess,neutral,ambiguous,lukewarm
+29,Could be better,negative,ambiguous,mild complaint
+30,Meh,negative,ambiguous,dismissive
+31,Best day ever thank you so much,positive,social,enthusiastic
+32,Honestly cannot recommend this enough,positive,social,enthusiastic
+33,I regret ever signing up for this service,negative,social,regret
+34,I have contacted support three times with no response,negative,support,complaint
+35,My issue was resolved quickly and professionally,positive,support,resolved positive
+36,The report outlines the methodology used to collect the data,neutral,formal,low sentiment
