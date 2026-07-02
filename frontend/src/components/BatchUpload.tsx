@@ -47,7 +47,7 @@ export default function BatchUpload() {
           onChange={(e) => onFile(e.target.files?.[0])}
           disabled={loading}
         />
-        {loading && <p className="mt-3 text-indigo-600">Analyzing batch…</p>}
+        {loading && <p className="mt-3 text-slate-600">Analyzing batch…</p>}
       </div>
 
       {error && <p className="rounded-lg bg-red-50 p-3 text-red-700">{error}</p>}

@@ -1,1 +1,25 @@
 @import "tailwindcss";
+
+/*
+ * Type system: IBM Plex Sans for UI and prose, IBM Plex Mono for model ids,
+ * metrics, and spec readouts. The proportional/monospace contrast is the
+ * app's typographic voice: prose explains, mono reports.
+ */
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+
+@layer base {
+  body {
+    /* Warm off-white canvas; surfaces sit on it as pure white cards with
+       hairline borders. Chroma is reserved for sentiment data. */
+    background-color: #fbfbfa;
+    color: #1e293b;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: #fde68a;
+  }
+}
