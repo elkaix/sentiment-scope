@@ -81,8 +81,9 @@ MODEL_REGISTRY: dict[str, ModelConfig] = {
         labels=("human", "ai"),
         domain="general AI-written text detection",
         note=(
-            "Default detector. Custom DeBERTa-v3 arch (single sigmoid logit) — loads "
-            "via DetectorModel, never AutoModelForSequenceClassification."
+            "Default detector: a DeBERTa-v3-large model fine-tuned to flag AI-written "
+            "English text. It outputs a single probability, P(ai) — higher means the "
+            "text more closely resembles AI-generated writing."
         ),
         local_path="models/desklib-ai-text-detector-v1.01",
         default=True,
@@ -103,7 +104,10 @@ MODEL_REGISTRY: dict[str, ModelConfig] = {
         task=ModelTask.AI_TEXT_DETECTION,
         labels=("human", "ai"),
         domain="general AI text detection",
-        note="Local detector. Verify label order from config.json before trusting scores.",
+        note=(
+            "A general AI-text detector included as a third opinion — compare its "
+            "verdict with the others to gauge agreement."
+        ),
         local_path="models/oxidane-tmr-ai-text-detector",
     ),
 }
