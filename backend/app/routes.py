@@ -31,6 +31,14 @@ router = APIRouter(prefix="/api")
 
 LABELS = ("negative", "neutral", "positive")
 EXPLAIN_MODEL_ID = "twitter-roberta"
+# A legitimate CSV is bounded by the same limits BatchRequest enforces:
+# at most MAX_BATCH non-empty texts, each at most MAX_CHARS characters —
+# roughly 500 * 2000 = 1MB, or ~4MB in the worst case of 4-byte UTF-8
+# characters throughout. 5MB is generous headroom for real use while still
+# bounding memory and parse CPU against a pathological file (e.g. millions
+# of blank lines slipping past the row-count check). Resource limits belong
+# at the boundary, like every other validation in this file.
+MAX_CSV_BYTES = 5 * 1024 * 1024
 DEFAULT_SENTIMENT_MODEL_ID = get_default_model_id(ModelTask.SENTIMENT)
 # Compare only two models by default: loading all four registry models on the
 # first call would download/hold ~2GB and feel broken in a portfolio demo.
@@ -155,6 +163,14 @@ async def analyze_csv(
     always learn WHY their file was rejected."""
     reject_non_default_model_id(model_id)
     raw = await file.read()
+    if len(raw) > MAX_CSV_BYTES:
+        # 413 Payload Too Large, not 400: the upload isn't malformed — it's
+        # simply too big, which is exactly what 413 means. Checked before any
+        # decode/parse work so an oversized file never reaches csv.DictReader.
+        raise HTTPException(
+            status_code=413,
+            detail=f"CSV file exceeds {MAX_CSV_BYTES // (1024 * 1024)}MB limit",
+        )
     try:
         # utf-8-sig also swallows the BOM that Excel loves to prepend.
         text_stream = io.StringIO(raw.decode("utf-8-sig"))

@@ -1,5 +1,7 @@
 import io
 
+from app.routes import MAX_CSV_BYTES
+
 
 def _upload(client, content: bytes, name="data.csv"):
     return client.post("/api/analyze/csv", files={"file": (name, io.BytesIO(content), "text/csv")})
@@ -59,3 +61,12 @@ def test_csv_exactly_500_non_empty_rows_with_blanks_is_200(client_with_model):
 def test_csv_non_utf8_is_400(client_with_model):
     resp = _upload(client_with_model, b"text\n\xff\xfe broken \xff\n")
     assert resp.status_code == 400
+
+
+def test_csv_over_max_bytes_is_413(client_with_model):
+    # One oversized field, not millions of rows: cheap to build, still
+    # exercises the raw byte-size guard before any CSV parsing happens.
+    csv_bytes = b"text\n" + b"x" * (MAX_CSV_BYTES + 1)
+    resp = _upload(client_with_model, csv_bytes)
+    assert resp.status_code == 413
+    assert "5MB" in resp.json()["detail"]
