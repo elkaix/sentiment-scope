@@ -167,8 +167,6 @@ async def analyze_csv(
 
     texts: list[str] = []
     for i, row in enumerate(reader):
-        if i >= MAX_BATCH:
-            raise HTTPException(status_code=400, detail=f"CSV exceeds {MAX_BATCH} row limit")
         t = (row.get("text") or "").strip()
         if len(t) > MAX_CHARS:
             raise HTTPException(
@@ -176,6 +174,11 @@ async def analyze_csv(
                 detail=f"Row {i + 2} exceeds {MAX_CHARS} characters",
             )
         if t:
+            if len(texts) >= MAX_BATCH:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"CSV exceeds {MAX_BATCH} non-empty row limit",
+                )
             texts.append(t)
 
     if not texts:

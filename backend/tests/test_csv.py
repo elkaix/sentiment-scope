@@ -33,6 +33,29 @@ def test_csv_skips_blank_rows(client_with_model):
     assert len(resp.json()["results"]) == 2
 
 
+def test_csv_blank_rows_dont_count_toward_row_limit(client_with_model):
+    # 300 non-empty rows interleaved with 250 whitespace-only rows: >500 raw
+    # CSV data rows but only 300 non-empty texts, so this must be accepted.
+    # (A whitespace char, not a truly empty line, is required so the row
+    # survives csv.DictReader's own blank-line skipping and still reaches
+    # the row-limit check.)
+    rows = "row\n \n" * 250 + "row\n" * 50
+    csv_bytes = b"text\n" + rows.encode()
+    resp = _upload(client_with_model, csv_bytes)
+    assert resp.status_code == 200
+    assert len(resp.json()["results"]) == 300
+
+
+def test_csv_exactly_500_non_empty_rows_with_blanks_is_200(client_with_model):
+    # Exactly 500 non-empty texts plus extra whitespace-only rows: still at
+    # the limit, not over it, so this must be accepted.
+    rows = "row\n \n" * 500
+    csv_bytes = b"text\n" + rows.encode()
+    resp = _upload(client_with_model, csv_bytes)
+    assert resp.status_code == 200
+    assert len(resp.json()["results"]) == 500
+
+
 def test_csv_non_utf8_is_400(client_with_model):
     resp = _upload(client_with_model, b"text\n\xff\xfe broken \xff\n")
     assert resp.status_code == 400
