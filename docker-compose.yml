@@ -1,0 +1,16 @@
+services:
+  backend:
+    build: ./backend
+    volumes:
+      # Persist HuggingFace downloads across container rebuilds — the model
+      # is ~500MB and only needs to be fetched once.
+      - hf-cache:/root/.cache/huggingface
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  hf-cache:
