@@ -10,3 +10,5 @@ dist/
 models/
 .playwright/
 .playwright-mcp/
+.claude/
+agents/
