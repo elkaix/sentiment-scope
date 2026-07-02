@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Least-privilege default: neither job needs to write to the repo.
+# Source: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflows-do/controlling-permissions-for-github_token
+permissions:
+  contents: read
+
+# Cancel a run that's superseded by a newer push to the same branch/PR,
+# so CI doesn't keep chewing through stale commits.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      # requirements-dev.txt deliberately excludes torch/transformers/captum/sklearn:
+      # unit tests mock the model, so CI stays fast and light. Integration
+      # tests (pytest -m integration) run locally where the weights live.
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: pytest -v
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          # Node 24 is Active LTS (supported through Apr 2028) and satisfies
+          # Vite 8's engines range. Node 26 is "Current", not yet LTS —
+          # avoid it here for CI/Docker stability (see plan review fix #5).
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test -- --run
+      - run: npm run build
