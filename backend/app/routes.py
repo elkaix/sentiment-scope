@@ -19,6 +19,9 @@ from app.model_registry import (
 from app.schemas import (
     MAX_BATCH,
     MAX_CHARS,
+    AiDetectCompareResponse,
+    AiDetectRequest,
+    AiDetectResponse,
     AnalyzeRequest,
     AnalyzeResponse,
     BatchRequest,
@@ -44,6 +47,14 @@ DEFAULT_SENTIMENT_MODEL_ID = get_default_model_id(ModelTask.SENTIMENT)
 # Compare only two models by default: loading all four registry models on the
 # first call would download/hold ~2GB and feel broken in a portfolio demo.
 DEFAULT_COMPARE_MODELS = ["twitter-roberta", "distilbert-sst2"]
+DEFAULT_DETECTOR_MODEL_ID = get_default_model_id(ModelTask.AI_TEXT_DETECTION)
+# Attached VERBATIM to every detector response. AI detection is probabilistic;
+# the product must never let a score read as proof of authorship.
+DETECTOR_WARNING = (
+    "AI detectors are probabilistic and can be wrong, especially on short, "
+    "edited, non-native, highly formal, or mixed-authorship text. Do not use "
+    "this as proof of authorship."
+)
 
 
 def reject_non_default_model_id(model_id: str | None) -> None:
@@ -304,6 +315,79 @@ async def compare(req: CompareRequest, request: Request):
             }
         )
     return {"results": results}
+
+
+async def _score_detectors(request: Request, text: str, model_ids: list[str]) -> list[dict]:
+    """Validate, load, and score a set of AI text detectors on one input.
+
+    Shared by /api/ai-detect and /api/ai-detect/compare so both apply the same
+    guards in the same order: allowlist (403) → known id (400) → detector-only
+    (400), ALL before any weights load. Sentiment ids are refused here — mixing
+    the two task families is the one thing this endpoint exists to prevent.
+    """
+    for model_id in model_ids:
+        reject_disabled_model(model_id)
+
+    configs = []
+    for model_id in model_ids:
+        try:
+            cfg = get_model_config(model_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown model_id '{model_id}'. "
+                "See /api/models?task=ai_text_detection for detector models.",
+            )
+        if cfg.task != ModelTask.AI_TEXT_DETECTION:
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{model_id}' is a {cfg.task.value} model; "
+                "the AI detection endpoints accept AI text detectors only.",
+            )
+        configs.append((model_id, cfg))
+
+    rows = []
+    for model_id, cfg in configs:
+        model = await get_or_load_model(request.app, model_id)
+        start = time.perf_counter()
+        prediction = model.predict([text])[0]
+        latency_ms = (time.perf_counter() - start) * 1000
+        scores = prediction["scores"]
+        rows.append(
+            {
+                "model_id": model_id,
+                "name": cfg.name,
+                "domain": cfg.domain,
+                "label": prediction["label"],
+                "scores": scores,
+                "confidence": max(scores.values()),
+                "latency_ms": latency_ms,
+                "note": cfg.note,
+            }
+        )
+    return rows
+
+
+@router.post("/ai-detect", response_model=AiDetectResponse)
+async def ai_detect(req: AiDetectRequest, request: Request):
+    """Score one text with a single AI detector (desklib by default). A
+    model_ids override picks a different detector; only the first is used since
+    this endpoint returns exactly one result — use /api/ai-detect/compare for
+    several. Every response carries the uncertainty warning."""
+    model_id = (req.model_ids or [DEFAULT_DETECTOR_MODEL_ID])[0]
+    rows = await _score_detectors(request, req.text, [model_id])
+    return {"result": rows[0], "warning": DETECTOR_WARNING}
+
+
+@router.post("/ai-detect/compare", response_model=AiDetectCompareResponse)
+async def ai_detect_compare(req: AiDetectRequest, request: Request):
+    """Run one text through several AI detectors side by side. Defaults to ALL
+    detectors so users can see them (dis)agree — the teaching point of the tab.
+    disagreement is true when the detectors don't all land on the same label."""
+    model_ids = req.model_ids or list(models_for_task(ModelTask.AI_TEXT_DETECTION))
+    rows = await _score_detectors(request, req.text, model_ids)
+    disagreement = len({r["label"] for r in rows}) > 1
+    return {"results": rows, "disagreement": disagreement, "warning": DETECTOR_WARNING}
 
 
 @router.get("/model")

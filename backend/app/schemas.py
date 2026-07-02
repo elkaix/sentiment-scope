@@ -106,3 +106,39 @@ class CompareItem(DynamicAnalyzeResponse):
 
 class CompareResponse(BaseModel):
     results: list[CompareItem]
+
+
+# --- AI text detection (Task 19) ------------------------------------------
+# A different ML task, not a sentiment comparison. Scores are dynamic dicts
+# over the canonical {"human", "ai"} pair — the sigmoid detector (desklib) and
+# the softmax detectors (fakespot/oxidane) all funnel into the same shape.
+
+
+class AiDetectRequest(AnalyzeRequest):
+    # Omit model_ids: /api/ai-detect uses the default detector; /api/ai-detect/compare
+    # uses every detector (see routes).
+    model_ids: list[str] | None = None
+
+
+class AiDetectItem(DynamicAnalyzeResponse):
+    # Dynamic scores (human/ai), plus the same per-model metadata compare rows
+    # carry, so the frontend can render detectors and sentiment models alike.
+    model_id: str
+    name: str
+    domain: str
+    confidence: float
+    latency_ms: float
+    note: str
+
+
+class AiDetectResponse(BaseModel):
+    # Every detector response carries the uncertainty warning — detectors are
+    # probabilistic and must never read as proof of authorship.
+    result: AiDetectItem
+    warning: str
+
+
+class AiDetectCompareResponse(BaseModel):
+    results: list[AiDetectItem]
+    disagreement: bool
+    warning: str

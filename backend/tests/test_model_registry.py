@@ -85,11 +85,14 @@ def test_build_model_sentiment_returns_sentiment_model():
     assert m.labels == ["positive", "negative", "neutral"]
 
 
-def test_build_model_detector_raises_not_implemented():
-    from app.model import build_model
+def test_build_model_detector_returns_detector_model():
+    from app.model import DetectorModel, build_model
 
-    with pytest.raises(NotImplementedError):
-        build_model(get_model_config("desklib-ai-detector"))
+    m = build_model(get_model_config("desklib-ai-detector"))
+    assert isinstance(m, DetectorModel)
+    # Canonical labels come from the registry — available before load() (no
+    # torch touched here), exactly like the sentiment path.
+    assert m.labels == ["human", "ai"]
 
 
 def test_get_or_load_model_lazy_loads_and_caches_once(monkeypatch):

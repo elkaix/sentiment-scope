@@ -84,3 +84,31 @@ def client_with_compare_models(client):
     client.app.state.model_cache["twitter-roberta"] = FakeModel()
     client.app.state.model_cache["distilbert-sst2"] = FakeBinaryModel()
     return client
+
+
+class FakeDetector:
+    """AI-detector stand-in: canonical {human, ai} scores, canned label. Lets
+    the detector API tests prove wiring/validation/disagreement without torch —
+    real label mapping and probabilities are covered by the integration suite."""
+
+    is_loaded = True
+    device = "cpu"
+    labels = ["human", "ai"]
+
+    def __init__(self, label: str = "ai", scores: dict | None = None) -> None:
+        self._label = label
+        self._scores = scores or {"human": 0.1, "ai": 0.9}
+
+    def predict(self, texts):
+        return [{"label": self._label, "scores": self._scores} for _ in texts]
+
+
+@pytest.fixture
+def client_with_detectors(client):
+    """Seed the cache with three fake detectors. desklib + fakespot call it AI,
+    oxidane calls it human — so the default (all-detector) compare disagrees."""
+    cache = client.app.state.model_cache
+    cache["desklib-ai-detector"] = FakeDetector("ai", {"human": 0.05, "ai": 0.95})
+    cache["fakespot-ai-detector"] = FakeDetector("ai", {"human": 0.2, "ai": 0.8})
+    cache["oxidane-ai-detector"] = FakeDetector("human", {"human": 0.7, "ai": 0.3})
+    return client
