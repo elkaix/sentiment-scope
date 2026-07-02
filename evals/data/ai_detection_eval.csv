@@ -1,0 +1,31 @@
+id,text,true_label,source_type,notes
+1,"ok sounds good, see you then",human,human_short,casual human text is short and low-signal
+2,ugh my train is late again wtf,human,human_short,slang + typo-friendly register
+3,can u send me the file when ur free? thanks,human,human_short,texting shorthand
+4,The committee reviewed the proposal and recommends deferring the decision until the next fiscal quarter.,human,human_formal,formal human prose reads polished
+5,"Please find attached the minutes from Tuesday's meeting; corrections should be submitted by Friday.",human,human_formal,business boilerplate written by a person
+6,"I am writing to confirm receipt of your application, which is now under review by our admissions panel.",human,human_formal,formal register overlaps with AI phrasing
+7,"I am very like this restaurant, the foods are delicious and staffs are kind to us.",human,human_non_native,ESL grammar (plural nouns, verb form)
+8,"Yesterday I go to market but it was close, so I am buying nothing and return home.",human,human_non_native,tense/aspect errors typical of L2 English
+9,This phone is good but battery is not so much long I must charge two time one day.,human,human_non_native,non-native syntax and article drop
+10,"Introducing the all-new Aurora blender — power, precision, and a splash of style for your kitchen.",human,human_marketing,human copywriter; polished so may look AI
+11,Our handcrafted candles turn any evening into a moment worth savoring. Light one and unwind.,human,human_marketing,ad copy with AI-adjacent cadence
+12,"Fresh beans, roasted daily, delivered to your door. Coffee the way it was meant to be.",human,human_marketing,human marketing tagline
+13,"In today's fast-paced world, staying organized is more important than ever for reaching your goals.",human,ambiguous,human text that ""sounds AI"" (false-positive bait)
+14,"There are many factors to consider, and ultimately the right choice depends on your own needs.",human,ambiguous,hedged human writing resembles AI filler
+15,"Overall, it was a memorable trip that offered both challenges and a few lessons I won't forget.",human,ambiguous,reflective human prose with AI-like framing
+16,"As an AI language model, I do not have personal opinions, but I can offer a balanced overview.",ai,ai_obvious,textbook AI self-reference
+17,Certainly! Here is a step-by-step guide to help you complete your task efficiently and effectively.,ai,ai_obvious,assistant-style opener + adverb stacking
+18,"I'm sorry, but I cannot assist with that request. However, I can provide some general information.",ai,ai_obvious,refusal template
+19,"Leveraging cutting-edge technology, our solution seamlessly integrates into your existing workflow.",ai,ai_polished,buzzword-dense generated marketing
+20,"This comprehensive approach ensures optimal outcomes while fostering sustainable, long-term growth.",ai,ai_polished,vague-but-confident AI register
+21,By prioritizing user experience the platform delivers a seamless and intuitive journey end to end.,ai,ai_polished,generated product blurb
+22,"honestly this approach ensures optimal outcomes while, um, fostering long-term growth lol",ai,ai_edited,AI text with casual human edits sprinkled in
+23,By prioritizing user experience the platform delivers a smooth journey start to finish — pretty neat tbh,ai,ai_edited,AI sentence + human sign-off (evasion attempt)
+24,leveraging modern tech our tool fits into ur existing workflow to boost productivity (mostly),ai,ai_edited,AI copy lowercased and de-formalized by hand
+25,"Utilizing state-of-the-art methods, the system blends smoothly with your current processes to boost output.",ai,ai_paraphrased,AI output run through a paraphraser
+26,"With a focus on the end user, the app provides a smooth and easy-to-follow path from beginning to end.",ai,ai_paraphrased,synonym-swapped generated text
+27,A thorough strategy such as this secures the best results and encourages steady expansion in every area.,ai,ai_paraphrased,paraphrased to dodge detectors
+28,"So I asked for help and here's what it gave me: In conclusion, regular exercise improves both physical and mental well-being over time.",ai,mixed_human_ai,human framing wraps an AI paragraph (origin AI)
+29,"Quick note before the section — Furthermore, it is essential to consider the broader implications for all stakeholders involved.",ai,mixed_human_ai,human intro + AI body (origin AI)
+30,"my two cents plus the draft: The proposed framework offers a robust and scalable foundation for future development.",ai,mixed_human_ai,human preamble on generated draft (origin AI)
