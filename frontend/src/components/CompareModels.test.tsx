@@ -15,6 +15,7 @@ const registry = {
     {
       id: "twitter-roberta",
       name: "cardiffnlp/twitter-roberta-base-sentiment-latest",
+      task: "sentiment",
       labels: ["negative", "neutral", "positive"],
       domain: "social / short English text",
       note: "",
@@ -24,6 +25,7 @@ const registry = {
     {
       id: "distilbert-sst2",
       name: "distilbert-base-uncased-finetuned-sst-2-english",
+      task: "sentiment",
       labels: ["negative", "positive"],
       domain: "general binary sentiment",
       note: "",
@@ -33,6 +35,7 @@ const registry = {
     {
       id: "finbert",
       name: "ProsusAI/finbert",
+      task: "sentiment",
       labels: ["negative", "neutral", "positive"],
       domain: "financial text",
       note: "Useful for finance/news sentences; misleading outside that domain.",

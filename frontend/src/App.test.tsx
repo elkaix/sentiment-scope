@@ -22,6 +22,7 @@ beforeEach(() => {
       {
         id: "twitter-roberta",
         name: "cardiffnlp/twitter-roberta-base-sentiment-latest",
+        task: "sentiment",
         labels: ["negative", "neutral", "positive"],
         domain: "social / short English text",
         note: "",

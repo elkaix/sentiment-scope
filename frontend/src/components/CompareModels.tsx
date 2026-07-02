@@ -74,6 +74,7 @@ function CompareForm({ registryPromise }: { registryPromise: Promise<ModelSummar
         <textarea
           className="w-full rounded-lg border border-slate-300 bg-white p-3 focus:border-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
           rows={3}
+          maxLength={2000}
           aria-label="Text to compare"
           value={text}
           onChange={(e) => setText(e.target.value)}

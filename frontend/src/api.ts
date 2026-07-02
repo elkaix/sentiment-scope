@@ -52,6 +52,7 @@ export interface ModelInfo {
 export interface ModelSummary {
   id: string;
   name: string;
+  task: string;
   labels: string[];
   domain: string;
   note: string;
@@ -81,11 +82,6 @@ export interface AiDetectItem {
   confidence: number;
   latency_ms: number;
   note: string;
-}
-
-export interface AiDetectResponse {
-  result: AiDetectItem;
-  warning: string;
 }
 
 export interface AiDetectCompareResponse {
@@ -132,9 +128,6 @@ export const getModels = (task?: "sentiment" | "ai_text_detection") =>
 
 export const compareModels = (text: string, model_ids?: string[]) =>
   request<{ results: CompareItem[] }>("/api/compare", postJson({ text, model_ids }));
-
-export const detectAiText = (text: string) =>
-  request<AiDetectResponse>("/api/ai-detect", postJson({ text }));
 
 export const compareAiDetectors = (text: string, model_ids?: string[]) =>
   request<AiDetectCompareResponse>("/api/ai-detect/compare", postJson({ text, model_ids }));
