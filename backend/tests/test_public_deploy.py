@@ -63,6 +63,34 @@ def test_public_deploy_rate_limits_api_with_429():
         _restore(["PUBLIC_DEPLOY"])
 
 
+def test_rate_limit_buckets_key_on_rightmost_forwarded_for():
+    """Behind the Spaces ingress the client IP arrives in X-Forwarded-For.
+    Buckets must key on the RIGHTMOST entry (appended by the trusted ingress);
+    leftmost entries are client-controlled, so keying on them would let a
+    spoofed header mint unlimited fresh buckets."""
+    pytest.importorskip("slowapi")
+    module = _reload_with({"PUBLIC_DEPLOY": "1"})
+    try:
+        with TestClient(module.app) as c:
+            exhaust = {"X-Forwarded-For": "6.6.6.6, 9.9.9.9"}
+            statuses = [
+                c.get("/api/health", headers=exhaust).status_code for _ in range(31)
+            ]
+            assert statuses[30] == 429
+
+            # Same trusted (rightmost) hop, different spoofed leftmost entry:
+            # still the SAME bucket — the spoof buys no fresh budget.
+            spoof = {"X-Forwarded-For": "1.2.3.4, 9.9.9.9"}
+            assert c.get("/api/health", headers=spoof).status_code == 429
+
+            # A genuinely different client (different rightmost entry) is
+            # unaffected by the exhausted bucket.
+            other = {"X-Forwarded-For": "6.6.6.6, 7.7.7.7"}
+            assert c.get("/api/health", headers=other).status_code == 200
+    finally:
+        _restore(["PUBLIC_DEPLOY"])
+
+
 def test_default_app_has_no_limiter_or_static_mount():
     """Neither switch set (dev/CI default): no 429s ever, and GET / is a 404 —
     the SPA is served by Vite (dev) or nginx (compose), not FastAPI."""

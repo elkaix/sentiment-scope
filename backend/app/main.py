@@ -49,6 +49,19 @@ if os.getenv("PUBLIC_DEPLOY") == "1":
     from slowapi.errors import RateLimitExceeded
     from slowapi.util import get_remote_address
 
+    def client_ip(request: Request) -> str:
+        # Spaces terminates TLS at its ingress, so request.client.host is an
+        # ingress hop, not the user — and the ingress is a fleet, so per-IP
+        # buckets would fragment across hops (verified live: 36 rapid
+        # requests, zero 429s). The real client is in X-Forwarded-For. Use
+        # the RIGHTMOST entry: it's appended by the trusted ingress itself,
+        # while leftmost entries arrive client-controlled — trusting those
+        # would let an attacker mint fresh buckets with a spoofed header.
+        xff = request.headers.get("x-forwarded-for")
+        if xff:
+            return xff.rsplit(",", 1)[-1].strip()
+        return get_remote_address(request)
+
     # One global per-IP budget, NOT per-route @limiter.limit decorators —
     # decorators would force the slowapi import whenever routes.py is
     # imported, which breaks the no-slowapi CI env. application_limits (scope
@@ -56,7 +69,7 @@ if os.getenv("PUBLIC_DEPLOY") == "1":
     # endpoints doesn't multiply the budget by seven. 30/min covers real
     # interactive usage; /api/explain (~50 forward passes per call) is what
     # this protects.
-    limiter = Limiter(key_func=get_remote_address, application_limits=["30/minute"])
+    limiter = Limiter(key_func=client_ip, application_limits=["30/minute"])
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
