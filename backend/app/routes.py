@@ -241,7 +241,9 @@ async def analyze_csv(
     if not texts:
         raise HTTPException(status_code=400, detail="No non-empty rows found")
 
-    results = model.predict(texts)
+    # Inference is CPU-bound and blocking; run it off the event loop so
+    # concurrent requests stay responsive.
+    results = await asyncio.to_thread(model.predict, texts)
     items = [{"text": t, **r} for t, r in zip(texts, results)]
     return {"results": items, "aggregates": aggregate(results)}
 
