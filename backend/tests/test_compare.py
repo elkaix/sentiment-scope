@@ -71,6 +71,26 @@ def test_rejects_unknown_model_id(client_with_compare_models):
     assert "not-a-real-model" in resp.json()["detail"]
 
 
+def test_compare_rejects_disabled_model(monkeypatch, client_with_model):
+    # ENABLED_MODELS is the public-deployment allowlist (Task 16A): the free
+    # Space must not let anonymous users lazy-load every registry model. The
+    # guard runs BEFORE get_or_load_model, so no fake cache entry is needed.
+    monkeypatch.setenv("ENABLED_MODELS", "twitter-roberta")
+    resp = client_with_model.post(
+        "/api/compare",
+        json={"text": "great", "model_ids": ["distilbert-sst2"]},
+    )
+    assert resp.status_code == 403
+    assert "disabled" in resp.json()["detail"].lower()
+
+
+def test_compare_allows_models_on_the_allowlist(monkeypatch, client_with_compare_models):
+    monkeypatch.setenv("ENABLED_MODELS", "twitter-roberta,distilbert-sst2")
+    resp = client_with_compare_models.post("/api/compare", json={"text": "great"})
+    assert resp.status_code == 200
+    assert len(resp.json()["results"]) == 2
+
+
 def test_lifespan_seeds_default_model_into_cache(monkeypatch):
     """The startup-loaded default must be seeded into model_cache so /api/compare
     reuses that one copy instead of loading a second ~500MB set of weights."""

@@ -40,6 +40,41 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="SentimentScope API", lifespan=lifespan)
 
+if os.getenv("PUBLIC_DEPLOY") == "1":
+    # Public-endpoint abuse guard (Hugging Face Spaces, Task 16A). Lazy import:
+    # slowapi ships only in the deployment image (requirements-docker.txt) —
+    # dev and CI never take this branch, so they never need it installed.
+    from fastapi import Request
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+    from slowapi.util import get_remote_address
+
+    # One global per-IP budget, NOT per-route @limiter.limit decorators —
+    # decorators would force the slowapi import whenever routes.py is
+    # imported, which breaks the no-slowapi CI env. application_limits (scope
+    # "global") shares ONE bucket across every /api path, so hammering seven
+    # endpoints doesn't multiply the budget by seven. 30/min covers real
+    # interactive usage; /api/explain (~50 forward passes per call) is what
+    # this protects.
+    limiter = Limiter(key_func=get_remote_address, application_limits=["30/minute"])
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    # NOT slowapi's SlowAPIMiddleware: it resolves the handler by scanning
+    # app.routes for an `endpoint` attribute, but FastAPI 0.139 wraps included
+    # routers in an _IncludedRouter object without one — so it silently
+    # exempts every request (verified empirically). This thin middleware
+    # drives the same Limiter by path prefix instead: only /api/* spends
+    # budget, so the static SPA assets under "/" stay free.
+    @app.middleware("http")
+    async def api_rate_limit(request: Request, call_next):
+        if request.url.path.startswith("/api"):
+            try:
+                limiter._check_request_limit(request, None, True)
+            except RateLimitExceeded as exc:
+                return _rate_limit_exceeded_handler(request, exc)
+        return await call_next(request)
+
 # CORS is only needed when the frontend is served from a different origin
 # (npm dev server without the proxy, or direct API access). The Vite proxy
 # and nginx make requests same-origin, but this keeps direct access working.
@@ -51,3 +86,18 @@ app.add_middleware(
 )
 
 app.include_router(router)
+
+# Same app, three serving topologies — the frontend never changes because it
+# only ever calls relative /api/... paths:
+#   1. Dev:      the Vite dev server proxies /api -> uvicorn (vite.config.ts).
+#   2. Compose:  nginx serves the built SPA and proxies /api -> this backend.
+#   3. Spaces:   a Space is exactly ONE container, so FastAPI itself serves
+#                the built SPA via the StaticFiles mount below.
+# Mount order matters: /api routes are matched first because the router is
+# registered before the static mount at "/". STATIC_DIR is only set in the
+# Spaces image — dev and compose don't use this.
+static_dir = os.getenv("STATIC_DIR")
+if static_dir:
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="spa")

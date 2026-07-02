@@ -1,0 +1,64 @@
+# Single-image deployment for Hugging Face Spaces (free CPU tier).
+#
+# Why this exists next to docker-compose.yml: a Space is exactly ONE
+# container, so the compose topology (nginx + backend) cannot run there.
+# Instead FastAPI serves the built SPA itself via StaticFiles (see the
+# STATIC_DIR mount in backend/app/main.py). Same app, three serving
+# topologies — Vite proxy in dev, nginx in compose, FastAPI static here —
+# and the frontend never changes because it only calls relative /api paths.
+
+# ---- Stage 1: build the static SPA bundle -----------------------------------
+FROM node:24-alpine AS frontend-build
+WORKDIR /build
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# ---- Stage 2: FastAPI serving both the SPA and the API -----------------------
+FROM python:3.13-slim
+
+# Spaces runs the container as uid 1000, NOT root — /root is unwritable
+# there. Create the same uid at build time so everything (pip installs,
+# the HF cache, the app) lives in a home this user owns.
+RUN useradd -m -u 1000 user
+USER user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH \
+    HF_HOME=/home/user/.cache/hf
+WORKDIR /home/user/app
+
+# CPU-only torch wheel: ~10x smaller than the default CUDA build, and the
+# free Space has no GPU anyway. requirements-docker.txt excludes torch so
+# we install it once from the CPU index, then the rest normally.
+COPY --chown=user backend/requirements-docker.txt .
+RUN pip install --no-cache-dir torch==2.12.1 --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir -r requirements-docker.txt
+
+# Bake the model weights INTO the image. A free Space has ephemeral disk and
+# sleeps after ~48h idle, so anything downloaded at runtime is re-downloaded
+# on every cold start — ~800MB before the health check can pass. Baked image
+# layers, by contrast, survive restarts. Both ENABLED_MODELS entries are
+# baked: the Compare tab loads distilbert on first use, which would otherwise
+# re-download it after every restart.
+RUN python -c "\
+from transformers import AutoModelForSequenceClassification, AutoTokenizer; \
+names = ['cardiffnlp/twitter-roberta-base-sentiment-latest', \
+         'distilbert/distilbert-base-uncased-finetuned-sst-2-english']; \
+[(AutoTokenizer.from_pretrained(n), AutoModelForSequenceClassification.from_pretrained(n)) for n in names]"
+
+COPY --chown=user backend/app ./app
+COPY --chown=user --from=frontend-build /build/dist ./static
+
+# STATIC_DIR turns on the FastAPI StaticFiles mount; PUBLIC_DEPLOY arms the
+# slowapi rate limiter; ENABLED_MODELS is the registry allowlist so anonymous
+# users can't lazy-load every model into 16GB of shared RAM. HF_HUB_OFFLINE
+# is set only now — AFTER the bake step — so runtime never touches the
+# network: startup either finds the baked weights or fails loudly.
+ENV STATIC_DIR=/home/user/app/static \
+    PUBLIC_DEPLOY=1 \
+    ENABLED_MODELS=twitter-roberta,distilbert-sst2 \
+    HF_HUB_OFFLINE=1
+
+EXPOSE 7860
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]

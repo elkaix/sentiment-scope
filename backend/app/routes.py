@@ -3,6 +3,7 @@ ML logic lives in SentimentModel — routes just wire the two together."""
 
 import csv
 import io
+import os
 import time
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
@@ -54,6 +55,30 @@ def reject_non_default_model_id(model_id: str | None) -> None:
             status_code=400,
             detail="This endpoint uses the default twitter-roberta model only. "
             "Use /api/compare for other models.",
+        )
+
+
+def enabled_model_ids() -> set[str] | None:
+    """Parse the ENABLED_MODELS allowlist. None = no restriction (dev).
+
+    The public Space sets ENABLED_MODELS so anonymous users can't lazy-load
+    every registry model and balloon RAM on the free 16GB box; dev and CI
+    leave it unset. Read per call, not at import, so tests can monkeypatch it.
+    """
+    raw = os.getenv("ENABLED_MODELS")
+    if not raw:
+        return None
+    return {x.strip() for x in raw.split(",") if x.strip()}
+
+
+def reject_disabled_model(model_id: str) -> None:
+    enabled = enabled_model_ids()
+    if enabled is not None and model_id not in enabled:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Model '{model_id}' is disabled on the public deployment. "
+            f"Available models: {', '.join(sorted(enabled))}. Run the app "
+            "locally (see the repo README) to compare the full registry.",
         )
 
 
@@ -231,6 +256,11 @@ async def compare(req: CompareRequest, request: Request):
     its winning-class confidence, and a per-model wall-clock latency.
     """
     model_ids = req.model_ids or DEFAULT_COMPARE_MODELS
+
+    # Public-deployment allowlist first: a disabled model is rejected before
+    # get_or_load_model can ever spend memory/bandwidth on its weights.
+    for model_id in model_ids:
+        reject_disabled_model(model_id)
 
     # Validate every id BEFORE loading any weights — fail fast at the boundary
     # so a bad id never costs a multi-hundred-MB load first.

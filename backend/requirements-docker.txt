@@ -3,3 +3,7 @@ uvicorn[standard]==0.49.0
 python-multipart==0.0.32
 transformers==5.12.1
 captum==0.9.0
+# Rate limiting for the public deployment only (PUBLIC_DEPLOY=1 in main.py).
+# Deliberately absent from requirements-dev.txt: unit tests and CI never
+# import it — see the lazy import in app/main.py.
+slowapi==0.1.10

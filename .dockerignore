@@ -1,0 +1,20 @@
+# Build-context hygiene for Dockerfile.spaces (repo-root context).
+# models/ is the big one: ~3GB of local weights that must never be shipped —
+# the Spaces image bakes its own copies from the HF Hub at build time.
+.git
+.github
+.claude
+.agents
+.superpowers
+docs
+evals
+models
+skills-lock.json
+backend/tests
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+**/.DS_Store
