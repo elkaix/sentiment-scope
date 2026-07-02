@@ -304,7 +304,8 @@ async def compare(req: CompareRequest, request: Request):
         # Inference is CPU-bound and blocking; run it off the event loop (like
         # the lazy load() in get_or_load_model) so concurrent requests stay
         # responsive. perf_counter is monotonic — the right clock for a duration
-        # — and brackets ONLY predict, not the thread hand-off.
+        # — and times the predict call itself (the thread hand-off is sub-ms
+        # noise; the expensive one-time load already happened before this loop).
         start = time.perf_counter()
         prediction = (await asyncio.to_thread(model.predict, [req.text]))[0]
         latency_ms = (time.perf_counter() - start) * 1000
@@ -363,7 +364,8 @@ async def _score_detectors(request: Request, text: str, model_ids: list[str]) ->
     for model_id, cfg in configs:
         model = await get_or_load_model(request.app, model_id)
         # Inference is CPU-bound and blocking; run it off the event loop so
-        # concurrent requests stay responsive. Latency brackets ONLY predict.
+        # concurrent requests stay responsive. Latency times the predict call
+        # (thread hand-off is sub-ms noise; the one-time load already happened).
         start = time.perf_counter()
         prediction = (await asyncio.to_thread(model.predict, [text]))[0]
         latency_ms = (time.perf_counter() - start) * 1000
