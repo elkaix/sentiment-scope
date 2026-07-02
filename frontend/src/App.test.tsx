@@ -13,6 +13,7 @@ vi.mock("./api", () => ({
   getModelInfo: vi.fn(),
   getModels: vi.fn(),
   compareModels: vi.fn(),
+  compareAiDetectors: vi.fn(),
 }));
 
 beforeEach(() => {
@@ -42,7 +43,7 @@ beforeEach(() => {
 // initial render inside an awaited act().
 const renderApp = () => act(async () => render(<App />));
 
-it("shows the wordmark and four tabs with Analyze active by default", async () => {
+it("shows the wordmark and five tabs with Analyze active by default", async () => {
   await renderApp();
 
   expect(screen.getByText("SentimentScope")).toBeInTheDocument();
@@ -51,6 +52,7 @@ it("shows the wordmark and four tabs with Analyze active by default", async () =
     "Analyze",
     "Batch",
     "Compare Sentiment",
+    "AI Detector",
     "How it works",
   ]);
   expect(screen.getByRole("tab", { name: "Analyze" })).toHaveAttribute("aria-selected", "true");

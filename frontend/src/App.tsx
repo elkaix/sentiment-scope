@@ -1,11 +1,12 @@
 import { Activity, useRef, useState } from "react";
 import type { ReactElement } from "react";
+import AiTextDetector from "./components/AiTextDetector";
 import AnalyzeForm from "./components/AnalyzeForm";
 import BatchUpload from "./components/BatchUpload";
 import CompareModels from "./components/CompareModels";
 import HowItWorks from "./components/HowItWorks";
 
-const TABS = ["Analyze", "Batch", "Compare Sentiment", "How it works"] as const;
+const TABS = ["Analyze", "Batch", "Compare Sentiment", "AI Detector", "How it works"] as const;
 type Tab = (typeof TABS)[number];
 
 // Panels are static JSX, hoisted so the elements are created once.
@@ -13,6 +14,7 @@ const PANELS: Record<Tab, ReactElement> = {
   Analyze: <AnalyzeForm />,
   Batch: <BatchUpload />,
   "Compare Sentiment": <CompareModels />,
+  "AI Detector": <AiTextDetector />,
   "How it works": <HowItWorks />,
 };
 
