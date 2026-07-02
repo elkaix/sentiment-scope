@@ -1,6 +1,7 @@
 """API routes. Endpoints stay thin: validation lives in schemas (Pydantic),
 ML logic lives in SentimentModel — routes just wire the two together."""
 
+import asyncio
 import csv
 import io
 import os
@@ -198,7 +199,11 @@ async def analyze_csv(
     JSON, so each failure mode gets its own explicit 400 — the caller should
     always learn WHY their file was rejected."""
     reject_non_default_model_id(model_id)
-    raw = await file.read()
+    # Bounded read: pull at most MAX_CSV_BYTES + 1 bytes off the wire, never the
+    # whole upload. The +1 byte is all the size check below needs to fire, so the
+    # guard can't be defeated by a body larger than RAM — an attacker streaming a
+    # multi-GB file never gets more than ~5MB buffered here.
+    raw = await file.read(MAX_CSV_BYTES + 1)
     if len(raw) > MAX_CSV_BYTES:
         # 413 Payload Too Large, not 400: the upload isn't malformed — it's
         # simply too big, which is exactly what 413 means. Checked before any
@@ -268,13 +273,9 @@ async def compare(req: CompareRequest, request: Request):
     """
     model_ids = req.model_ids or DEFAULT_COMPARE_MODELS
 
-    # Public-deployment allowlist first: a disabled model is rejected before
-    # get_or_load_model can ever spend memory/bandwidth on its weights.
-    for model_id in model_ids:
-        reject_disabled_model(model_id)
-
-    # Validate every id BEFORE loading any weights — fail fast at the boundary
-    # so a bad id never costs a multi-hundred-MB load first.
+    # Validate identity BEFORE the allowlist: an unknown id must return a
+    # truthful 400, not masquerade as a 403 "disabled". Every id is checked
+    # BEFORE loading any weights, so a bad id never costs a multi-hundred-MB load.
     configs = []
     for model_id in model_ids:
         try:
@@ -292,12 +293,20 @@ async def compare(req: CompareRequest, request: Request):
             )
         configs.append((model_id, cfg))
 
+    # Public-deployment allowlist next: a known-but-disabled model is rejected
+    # before get_or_load_model can ever spend memory/bandwidth on its weights.
+    for model_id, _ in configs:
+        reject_disabled_model(model_id)
+
     results = []
     for model_id, cfg in configs:
         model = await get_or_load_model(request.app, model_id)
-        # perf_counter is monotonic — the correct clock for measuring a duration.
+        # Inference is CPU-bound and blocking; run it off the event loop (like
+        # the lazy load() in get_or_load_model) so concurrent requests stay
+        # responsive. perf_counter is monotonic — the right clock for a duration
+        # — and brackets ONLY predict, not the thread hand-off.
         start = time.perf_counter()
-        prediction = model.predict([req.text])[0]
+        prediction = (await asyncio.to_thread(model.predict, [req.text]))[0]
         latency_ms = (time.perf_counter() - start) * 1000
         scores = prediction["scores"]
         results.append(
@@ -321,13 +330,12 @@ async def _score_detectors(request: Request, text: str, model_ids: list[str]) ->
     """Validate, load, and score a set of AI text detectors on one input.
 
     Shared by /api/ai-detect and /api/ai-detect/compare so both apply the same
-    guards in the same order: allowlist (403) → known id (400) → detector-only
-    (400), ALL before any weights load. Sentiment ids are refused here — mixing
-    the two task families is the one thing this endpoint exists to prevent.
+    guards in the same order: known id (400) → detector-only (400) → allowlist
+    (403), ALL before any weights load. Identity is checked before the allowlist
+    so an unknown id returns a truthful 400 instead of masquerading as a 403
+    "disabled". Sentiment ids are refused here — mixing the two task families is
+    the one thing this endpoint exists to prevent.
     """
-    for model_id in model_ids:
-        reject_disabled_model(model_id)
-
     configs = []
     for model_id in model_ids:
         try:
@@ -346,11 +354,18 @@ async def _score_detectors(request: Request, text: str, model_ids: list[str]) ->
             )
         configs.append((model_id, cfg))
 
+    # Public-deployment allowlist last: a known-but-disabled detector is rejected
+    # before get_or_load_model can ever spend memory/bandwidth on its weights.
+    for model_id, _ in configs:
+        reject_disabled_model(model_id)
+
     rows = []
     for model_id, cfg in configs:
         model = await get_or_load_model(request.app, model_id)
+        # Inference is CPU-bound and blocking; run it off the event loop so
+        # concurrent requests stay responsive. Latency brackets ONLY predict.
         start = time.perf_counter()
-        prediction = model.predict([text])[0]
+        prediction = (await asyncio.to_thread(model.predict, [text]))[0]
         latency_ms = (time.perf_counter() - start) * 1000
         scores = prediction["scores"]
         rows.append(

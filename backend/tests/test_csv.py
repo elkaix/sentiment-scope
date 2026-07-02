@@ -70,3 +70,13 @@ def test_csv_over_max_bytes_is_413(client_with_model):
     resp = _upload(client_with_model, csv_bytes)
     assert resp.status_code == 413
     assert "5MB" in resp.json()["detail"]
+
+
+def test_csv_far_over_max_bytes_still_413(client_with_model):
+    # A body many times the limit still 413s: the endpoint uses a BOUNDED read
+    # (file.read(MAX_CSV_BYTES + 1)), so the guard fires on the first MAX+1 bytes
+    # and can't be defeated by a body larger than RAM. Behavior is all we can
+    # assert here; the bounded read is what keeps that behavior cheap.
+    csv_bytes = b"text\n" + b"x" * (MAX_CSV_BYTES * 3)
+    resp = _upload(client_with_model, csv_bytes)
+    assert resp.status_code == 413

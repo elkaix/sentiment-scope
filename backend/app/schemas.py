@@ -7,11 +7,17 @@ assume clean input, which keeps it simple.
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.model_registry import MODEL_REGISTRY
+
 # Character cap is a cheap pre-tokenization guard. The tokenizer still
 # truncates to 512 tokens, but rejecting huge payloads early protects the
 # server from pathological requests.
 MAX_CHARS = 2000
 MAX_BATCH = 500
+# A multi-model request can name at most every registry model once. Capping at
+# the registry size (and de-duplicating below) stops one anonymous request from
+# queueing thousands of inferences by padding or repeating model_ids.
+MAX_MODEL_IDS = len(MODEL_REGISTRY)
 
 
 class AnalyzeRequest(BaseModel):
@@ -88,9 +94,26 @@ class DynamicAnalyzeResponse(BaseModel):
     scores: dict[str, float]
 
 
-class CompareRequest(AnalyzeRequest):
+class _MultiModelRequest(AnalyzeRequest):
+    """Shared contract for endpoints that fan one input across several named
+    models. model_ids is capped at the registry size and de-duplicated
+    (order-preserving) at the boundary, so one anonymous request can never
+    queue thousands of inferences by repeating or padding the list."""
+
+    model_ids: list[str] | None = Field(default=None, max_length=MAX_MODEL_IDS)
+
+    @field_validator("model_ids")
+    @classmethod
+    def dedupe_model_ids(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        # dict.fromkeys keeps the first occurrence of each id and preserves order.
+        return list(dict.fromkeys(v))
+
+
+class CompareRequest(_MultiModelRequest):
     # Omit model_ids to compare the default lineup (see routes.DEFAULT_COMPARE_MODELS).
-    model_ids: list[str] | None = None
+    pass
 
 
 class CompareItem(DynamicAnalyzeResponse):
@@ -114,10 +137,10 @@ class CompareResponse(BaseModel):
 # the softmax detectors (fakespot/oxidane) all funnel into the same shape.
 
 
-class AiDetectRequest(AnalyzeRequest):
+class AiDetectRequest(_MultiModelRequest):
     # Omit model_ids: /api/ai-detect uses the default detector; /api/ai-detect/compare
     # uses every detector (see routes).
-    model_ids: list[str] | None = None
+    pass
 
 
 class AiDetectItem(DynamicAnalyzeResponse):

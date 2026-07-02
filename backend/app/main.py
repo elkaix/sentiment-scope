@@ -71,7 +71,9 @@ if os.getenv("PUBLIC_DEPLOY") == "1":
     # this protects.
     limiter = Limiter(key_func=client_ip, application_limits=["30/minute"])
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    # No app.add_exception_handler(RateLimitExceeded, ...): the middleware below
+    # catches RateLimitExceeded and returns the 429 itself, so the exception
+    # never propagates to an app-level handler — registering one would be dead code.
 
     # NOT slowapi's SlowAPIMiddleware: it resolves the handler by scanning
     # app.routes for an `endpoint` attribute, but FastAPI 0.139 wraps included

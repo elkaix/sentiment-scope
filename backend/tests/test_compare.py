@@ -91,6 +91,40 @@ def test_compare_allows_models_on_the_allowlist(monkeypatch, client_with_compare
     assert len(resp.json()["results"]) == 2
 
 
+def test_compare_dedupes_duplicate_model_ids(client_with_compare_models):
+    # A repeated id must collapse to ONE inference/row — one anonymous request
+    # can't queue the same model dozens of times by padding the list.
+    resp = client_with_compare_models.post(
+        "/api/compare",
+        json={"text": "good", "model_ids": ["twitter-roberta", "twitter-roberta"]},
+    )
+    assert resp.status_code == 200
+    assert [r["model_id"] for r in resp.json()["results"]] == ["twitter-roberta"]
+
+
+def test_compare_rejects_over_cap_model_ids(client_with_compare_models):
+    # More ids than the registry holds is rejected at the boundary (422) before
+    # any weights load — a hard cap on how many inferences one request can queue.
+    from app.schemas import MAX_MODEL_IDS
+
+    too_many = [f"model-{i}" for i in range(MAX_MODEL_IDS + 1)]
+    resp = client_with_compare_models.post(
+        "/api/compare", json={"text": "good", "model_ids": too_many}
+    )
+    assert resp.status_code == 422
+
+
+def test_compare_unknown_id_is_400_even_under_allowlist(monkeypatch, client_with_compare_models):
+    # Guard order: an unknown id returns a truthful 400, NOT a 403 masquerading
+    # as "disabled", even when the ENABLED_MODELS allowlist is active.
+    monkeypatch.setenv("ENABLED_MODELS", "twitter-roberta")
+    resp = client_with_compare_models.post(
+        "/api/compare", json={"text": "good", "model_ids": ["not-a-real-model"]}
+    )
+    assert resp.status_code == 400
+    assert "not-a-real-model" in resp.json()["detail"]
+
+
 def test_lifespan_seeds_default_model_into_cache(monkeypatch):
     """The startup-loaded default must be seeded into model_cache so /api/compare
     reuses that one copy instead of loading a second ~500MB set of weights."""
