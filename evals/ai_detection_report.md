@@ -71,7 +71,7 @@ Accuracy and macro F1 against the seed labels, plus single-text latency (p50 = t
 | fakespot-ai-detector | 0.567 | 0.562 | 8.5 | 32.9 |
 | oxidane-ai-detector | 0.600 | 0.524 | 6.5 | 8.5 |
 
-### `desklib-ai-detector` — desklib-ai-text-detector-v1.01
+### `desklib-ai-detector` — desklib/ai-text-detector-v1.01
 
 Per-class precision / recall / F1:
 
@@ -107,7 +107,7 @@ Misclassified (15 of 30) — P(ai) shows how confidently it was wrong:
 | There are many factors to consider, and ultimately the right choice depends on your own needs. | ambiguous | human | ai | 1.00 |
 | Overall, it was a memorable trip that offered both challenges and a few lessons I won't forget. | ambiguous | human | ai | 1.00 |
 
-### `fakespot-ai-detector` — fakespot-roberta-base-ai-text-detection-v1
+### `fakespot-ai-detector` — fakespot-ai/roberta-base-ai-text-detection-v1
 
 Per-class precision / recall / F1:
 
@@ -141,7 +141,7 @@ Misclassified (13 of 30) — P(ai) shows how confidently it was wrong:
 | A thorough strategy such as this secures the best results and encourages steady expansion in every area. | ai_paraphrased | ai | human | 0.19 |
 | my two cents plus the draft: The proposed framework offers a robust and scalable foundation for future development. | mixed_human_ai | ai | human | 0.14 |
 
-### `oxidane-ai-detector` — oxidane-tmr-ai-text-detector
+### `oxidane-ai-detector` — Oxidane/tmr-ai-text-detector
 
 Per-class precision / recall / F1:
 

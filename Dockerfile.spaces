@@ -50,11 +50,13 @@ names = ['cardiffnlp/twitter-roberta-base-sentiment-latest', \
 [(AutoTokenizer.from_pretrained(n), AutoModelForSequenceClassification.from_pretrained(n)) for n in names]"
 
 # Detectors are baked differently — into local model directories, not the HF
-# cache. The registry gives detectors display names ("desklib-ai-text-detector-
-# v1.01"), not valid Hub IDs, so resolve_model_source() can only reach them via
-# their local_path; the Hub-name fallback that works for sentiment would 404
-# here. So snapshot_download each real detector repo into the exact path
-# resolve_model_source() computes at runtime (models/ sibling of the app dir).
+# cache. Each registry detector sets a local_path, and resolve_model_source()
+# checks that on-disk dir FIRST (falling back to the Hub name only if it is
+# absent), so runtime resolves detectors from local weights. snapshot_download
+# each real detector repo into the exact path resolve_model_source() computes at
+# runtime (models/ sibling of the app dir). The registry names are the real Hub
+# repos too (the same ids used as the snapshot_download source), so the Hub-name
+# fallback would resolve as well — exactly like the sentiment models above.
 #
 # All THREE detectors are baked, not lazy-loaded: the AI Detector tab's default
 # action runs /api/ai-detect/compare with no model_ids, which scores every

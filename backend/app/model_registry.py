@@ -76,7 +76,7 @@ MODEL_REGISTRY: dict[str, ModelConfig] = {
     # AI text detector models
     "desklib-ai-detector": ModelConfig(
         id="desklib-ai-detector",
-        name="desklib-ai-text-detector-v1.01",
+        name="desklib/ai-text-detector-v1.01",
         task=ModelTask.AI_TEXT_DETECTION,
         labels=("human", "ai"),
         domain="general AI-written text detection",
@@ -91,7 +91,7 @@ MODEL_REGISTRY: dict[str, ModelConfig] = {
     ),
     "fakespot-ai-detector": ModelConfig(
         id="fakespot-ai-detector",
-        name="fakespot-roberta-base-ai-text-detection-v1",
+        name="fakespot-ai/roberta-base-ai-text-detection-v1",
         task=ModelTask.AI_TEXT_DETECTION,
         labels=("human", "ai"),
         domain="AI-generated review/text detection",
@@ -100,7 +100,7 @@ MODEL_REGISTRY: dict[str, ModelConfig] = {
     ),
     "oxidane-ai-detector": ModelConfig(
         id="oxidane-ai-detector",
-        name="oxidane-tmr-ai-text-detector",
+        name="Oxidane/tmr-ai-text-detector",
         task=ModelTask.AI_TEXT_DETECTION,
         labels=("human", "ai"),
         domain="general AI text detection",

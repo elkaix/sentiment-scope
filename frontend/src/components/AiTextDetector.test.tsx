@@ -16,7 +16,7 @@ const WARNING =
 
 const item = (over: Partial<AiDetectItem> = {}): AiDetectItem => ({
   model_id: "desklib-ai-detector",
-  name: "desklib-ai-text-detector-v1.01",
+  name: "desklib/ai-text-detector-v1.01",
   domain: "general AI-written text detection",
   label: "ai",
   scores: { human: 0.1, ai: 0.9 },
@@ -57,7 +57,7 @@ it("renders a readout per detector with its verdict, scores, latency, and note",
     results: [
       item({
         model_id: "desklib-ai-detector",
-        name: "desklib-ai-text-detector-v1.01",
+        name: "desklib/ai-text-detector-v1.01",
         label: "ai",
         scores: { human: 0.02, ai: 0.98 },
         confidence: 0.98,
@@ -66,7 +66,7 @@ it("renders a readout per detector with its verdict, scores, latency, and note",
       }),
       item({
         model_id: "fakespot-ai-detector",
-        name: "fakespot-roberta-base-ai-text-detection-v1",
+        name: "fakespot-ai/roberta-base-ai-text-detection-v1",
         label: "human",
         scores: { human: 0.7, ai: 0.3 },
         confidence: 0.7,
@@ -85,7 +85,7 @@ it("renders a readout per detector with its verdict, scores, latency, and note",
   const desklib = await screen.findByRole("group", { name: "desklib-ai-detector" });
   const fakespot = screen.getByRole("group", { name: "fakespot-ai-detector" });
 
-  expect(within(desklib).getByText("desklib-ai-text-detector-v1.01")).toBeInTheDocument();
+  expect(within(desklib).getByText("desklib/ai-text-detector-v1.01")).toBeInTheDocument();
   expect(within(desklib).getByText("general AI-written text detection")).toBeInTheDocument();
   expect(within(desklib).getByText("2.0%")).toBeInTheDocument(); // P(human)
   expect(within(desklib).getAllByText("98.0%").length).toBeGreaterThan(0); // P(ai) + confidence

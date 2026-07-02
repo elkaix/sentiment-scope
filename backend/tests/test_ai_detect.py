@@ -58,7 +58,7 @@ def test_ai_detect_honors_explicit_detector(client_with_detectors):
 
 def test_ai_detect_row_carries_registry_metadata(client_with_detectors):
     result = client_with_detectors.post("/api/ai-detect", json={"text": "x"}).json()["result"]
-    assert result["name"] == "desklib-ai-text-detector-v1.01"
+    assert result["name"] == "desklib/ai-text-detector-v1.01"
     assert result["domain"]
     assert result["note"]
     assert isinstance(result["latency_ms"], (int, float))
@@ -132,6 +132,17 @@ def test_compare_rejects_sentiment_model(client_with_detectors):
     )
     assert resp.status_code == 400
     assert "sentiment" in resp.json()["detail"].lower()
+
+
+def test_compare_dedupes_duplicate_detector_ids(client_with_detectors):
+    # Same dedupe guard as /api/compare: a repeated detector id collapses to one
+    # row, so one request can't queue the same detector many times over.
+    resp = client_with_detectors.post(
+        "/api/ai-detect/compare",
+        json={"text": "x", "model_ids": ["desklib-ai-detector", "desklib-ai-detector"]},
+    )
+    assert resp.status_code == 200
+    assert [r["model_id"] for r in resp.json()["results"]] == ["desklib-ai-detector"]
 
 
 # --- cross-task rejection: detectors are refused by /api/compare ----------
