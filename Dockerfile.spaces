@@ -37,27 +37,52 @@ RUN pip install --no-cache-dir torch==2.12.1 --index-url https://download.pytorc
 
 # Bake the model weights INTO the image. A free Space has ephemeral disk and
 # sleeps after ~48h idle, so anything downloaded at runtime is re-downloaded
-# on every cold start — ~800MB before the health check can pass. Baked image
-# layers, by contrast, survive restarts. Both ENABLED_MODELS entries are
-# baked: the Compare tab loads distilbert on first use, which would otherwise
-# re-download it after every restart.
+# on every cold start before the health check can pass. Baked image layers, by
+# contrast, survive restarts.
+#
+# Sentiment models bake into the HF cache via their real Hub names (which double
+# as the registry's fallback source id). Both ENABLED_MODELS sentiment entries
+# are baked: the Compare tab loads distilbert on first use.
 RUN python -c "\
 from transformers import AutoModelForSequenceClassification, AutoTokenizer; \
 names = ['cardiffnlp/twitter-roberta-base-sentiment-latest', \
          'distilbert/distilbert-base-uncased-finetuned-sst-2-english']; \
 [(AutoTokenizer.from_pretrained(n), AutoModelForSequenceClassification.from_pretrained(n)) for n in names]"
 
+# Detectors are baked differently — into local model directories, not the HF
+# cache. The registry gives detectors display names ("desklib-ai-text-detector-
+# v1.01"), not valid Hub IDs, so resolve_model_source() can only reach them via
+# their local_path; the Hub-name fallback that works for sentiment would 404
+# here. So snapshot_download each real detector repo into the exact path
+# resolve_model_source() computes at runtime (models/ sibling of the app dir).
+#
+# All THREE detectors are baked, not lazy-loaded: the AI Detector tab's default
+# action runs /api/ai-detect/compare with no model_ids, which scores every
+# detector at once — so a first click needs all three regardless, and on
+# ephemeral disk any un-baked weight would re-download on every cold start.
+# ~3GB of DeBERTa-v3-large + two RoBERTa checkpoints; the free Space's 16GB RAM
+# fits all five models (~3.4GB resident). *.bin is skipped because every repo
+# ships model.safetensors — this drops redundant pytorch_model.bin/training_args.bin.
+RUN python -c "\
+from huggingface_hub import snapshot_download; \
+repos = {'desklib/ai-text-detector-v1.01': 'desklib-ai-text-detector-v1.01', \
+         'fakespot-ai/roberta-base-ai-text-detection-v1': 'fakespot-roberta-base-ai-text-detection-v1', \
+         'Oxidane/tmr-ai-text-detector': 'oxidane-tmr-ai-text-detector'}; \
+[snapshot_download(repo, local_dir=f'/home/user/models/{d}', ignore_patterns=['*.bin']) for repo, d in repos.items()]"
+
 COPY --chown=user backend/app ./app
 COPY --chown=user --from=frontend-build /build/dist ./static
 
 # STATIC_DIR turns on the FastAPI StaticFiles mount; PUBLIC_DEPLOY arms the
-# slowapi rate limiter; ENABLED_MODELS is the registry allowlist so anonymous
-# users can't lazy-load every model into 16GB of shared RAM. HF_HUB_OFFLINE
-# is set only now — AFTER the bake step — so runtime never touches the
-# network: startup either finds the baked weights or fails loudly.
+# slowapi rate limiter; ENABLED_MODELS is the registry allowlist. All five baked
+# models are enabled — the two sentiment models plus all three AI detectors — so
+# both the Compare and AI Detector tabs work live; any other registry model
+# (finbert, xlm-twitter) still 403s. HF_HUB_OFFLINE is set only now — AFTER the
+# bake steps — so runtime never touches the network: startup either finds the
+# baked weights (sentiment in the HF cache, detectors in local dirs) or fails loudly.
 ENV STATIC_DIR=/home/user/app/static \
     PUBLIC_DEPLOY=1 \
-    ENABLED_MODELS=twitter-roberta,distilbert-sst2 \
+    ENABLED_MODELS=twitter-roberta,distilbert-sst2,desklib-ai-detector,fakespot-ai-detector,oxidane-ai-detector \
     HF_HUB_OFFLINE=1
 
 EXPOSE 7860

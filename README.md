@@ -4,8 +4,9 @@
 
 An educational, end-to-end ML engineering app: a React UI talking to a FastAPI
 backend that serves transformer sentiment models locally — with token-level
-**Integrated Gradients explainability**, model comparison, evaluation metrics,
-error analysis, batch CSV analysis, tests, Docker, and CI.
+**Integrated Gradients explainability**, model comparison, **AI-text detection with
+detector disagreement**, evaluation metrics, error analysis, batch CSV analysis,
+tests, Docker, and CI.
 
 Built as an AI/ML portfolio project: the code is deliberately over-commented,
 teaching the *why* of each step (tokenization → logits → softmax, GPU batching,
@@ -31,11 +32,12 @@ React (Vite + TypeScript + Tailwind v4 + Recharts, React 19 idioms)
         ▼
 FastAPI ── lifespan loads the default SentimentModel (twitter-roberta) ONCE
         ├── analyze / batch / csv / explain : default model only, strict 3-class
-        ├── compare()  : lazy-loads sentiment registry models, dynamic label scores
-        └── explain()  : captum LayerIntegratedGradients on roberta.embeddings
+        ├── compare()          : lazy-loads sentiment registry models, dynamic label scores
+        ├── explain()          : captum LayerIntegratedGradients on roberta.embeddings
+        └── ai-detect(/compare): lazy-loads AI text detectors → {human, ai} scores + disagreement
         ▼
 Model registry (task-aware): sentiment (RoBERTa · DistilBERT-SST2 · FinBERT · XLM-R)
-                             + AI-detector configs already scaffolded for Phase 2
+                             + AI detectors (desklib DeBERTa-v3 · fakespot · oxidane)
 ```
 
 | Endpoint | Purpose |
@@ -46,6 +48,8 @@ Model registry (task-aware): sentiment (RoBERTa · DistilBERT-SST2 · FinBERT ·
 | `POST /api/explain` | Integrated Gradients token attributions (**twitter-roberta only**) |
 | `GET /api/models?task=` | Task-aware model registry catalog with a live `loaded` flag |
 | `POST /api/compare` | Sentiment-only side-by-side comparison — per-model dynamic scores + wall-clock latency |
+| `POST /api/ai-detect` | Single text → one AI detector's `{human, ai}` scores + verbatim uncertainty warning (desklib by default) |
+| `POST /api/ai-detect/compare` | Same text through all detectors → per-model scores + a `disagreement` flag + the warning |
 | `GET /api/health` · `GET /api/model` | Readiness (`model_loaded`, device) · default model card |
 
 ## Quickstart
@@ -56,8 +60,10 @@ The app is deployed to a free CPU **[Hugging Face Space](https://melkholy-sentim
 no setup required. Because it is a public, shared box the deployment is intentionally
 constrained:
 
-- **Two models only.** `ENABLED_MODELS` allowlists `twitter-roberta` + `distilbert-sst2`;
-  requesting any other registry model on Compare returns **403** (run locally for the full registry).
+- **Five models enabled.** `ENABLED_MODELS` allowlists the two sentiment models
+  (`twitter-roberta` + `distilbert-sst2`) and all three AI detectors (`desklib` / `fakespot` /
+  `oxidane`); requesting any other registry model (finbert, xlm-twitter) returns **403**
+  (run locally for the full registry).
 - **Rate limited.** One shared **30 requests/minute per IP** budget across all `/api/*`
   routes; bursting past it returns **429**. This mainly protects `/api/explain`, which runs
   ~50 forward passes per call.
@@ -134,12 +140,50 @@ The off-diagonal tells the story: the model over-predicts *positive* (recall 0.9
 0.59) and misses negatives and neutrals — exactly the sarcasm ("Yeah, amazing, another crash")
 and mixed-sentiment ("great camera though the battery drains too fast") rows in the report.
 
+## AI text detection
+
+A second task family, served alongside sentiment through the same task-aware registry:
+paste text and see whether AI-text detectors think it was machine-written. Three local
+detectors run behind two endpoints — `POST /api/ai-detect` (one detector, desklib by
+default) and `POST /api/ai-detect/compare` (all three, side by side). Each returns a full
+`{human, ai}` probability distribution, not just a verdict.
+
+- **desklib** — DeBERTa-v3-large fine-tuned for AI-text detection; emits a single logit, so
+  `P(ai) = sigmoid(logit)` (the registry's `single_logit_sigmoid` adapter — one architecture,
+  loaded through a custom model class rather than `AutoModelForSequenceClassification`).
+- **fakespot** and **oxidane** — RoBERTa-base detectors with standard 2-class softmax heads.
+
+**Disagreement is the point, not a bug.** `/api/ai-detect/compare` sets a `disagreement`
+flag whenever the detectors don't all land on the same label, and the AI Detector tab frames
+that split as uncertainty rather than a tie to break. On the eval fixture the fleet split on
+**60% of rows (18 of 30)** — when models trained on different data disagree about a sentence,
+that split *is* the uncertainty signal, not noise to average away. Full analysis:
+[`evals/ai_detection_report.md`](evals/ai_detection_report.md).
+
+> **Honest caveat on those numbers.** Every row in that fixture — both the `human`- and
+> `ai`-labeled examples — was written by the AI assistant that built this project. So it is a
+> *teaching fixture for failure modes and disagreement, not a benchmark* of detector quality,
+> and the per-detector accuracies in the report are illustrations of failure modes, never
+> scores. See the report's "Why this is not a benchmark" section.
+
+**Warning by construction.** Every detector response carries a verbatim uncertainty warning,
+and the UI renders that exact backend string — never a paraphrase — so a probability can never
+drift into reading as proof of authorship:
+
+> AI detectors are probabilistic and can be wrong, especially on short, edited, non-native,
+> highly formal, or mixed-authorship text. Do not use this as proof of authorship.
+
+![AI Detector tab: one paragraph scored by three detectors with a verbatim uncertainty callout and a disagreement banner](docs/screenshots/ai-detector.png)
+
+On the live Space all three detectors are enabled and baked into the image, so the AI Detector
+tab works on first click (its default action scores all three detectors at once).
+
 ## Tests
 
 ```bash
-cd backend && pytest              # 58 unit tests — model mocked, runs anywhere (no torch)
-cd backend && pytest -m integration   # 6 real-model tests across the sentiment registry (needs weights)
-cd frontend && npm test -- --run  # 17 component/API tests (vitest + Testing Library)
+cd backend && pytest              # 72 unit tests — model mocked, runs anywhere (no torch)
+cd backend && pytest -m integration   # 9 real-model tests across the sentiment + detector registry (needs weights)
+cd frontend && npm test -- --run  # 25 component/API tests (vitest + Testing Library)
 ```
 
 CI (GitHub Actions) runs lint + unit tests + the frontend build on every push —
@@ -157,6 +201,10 @@ a fake model via FastAPI dependency overrides.
   sentiment models to expose domain/label mismatch and latency tradeoffs (`/api/compare` is
   sentiment-only; each row carries the model's *own* label keys, so a binary model never fakes
   a neutral score).
+- **A second ML task, cleanly separated:** AI-text detection lives in the same task-aware
+  registry but never shares comparison endpoints with sentiment — three detectors (two
+  architectures: a DeBERTa-v3 single-logit sigmoid head and two RoBERTa softmax heads), two
+  endpoints, a disagreement flag, and a verbatim uncertainty warning on every response.
 - **Evaluation:** `evals/run_eval.py` reports accuracy, macro F1, confusion matrix, p50/p95
   latency, and the specific misclassified examples — with a machine-readable JSON summary.
 - **Engineering hygiene:** validation at the boundary, a dependency-injected model for
@@ -190,24 +238,31 @@ a fake model via FastAPI dependency overrides.
 - Sentiment models are not creativity judges; they estimate polarity, confidence, and disagreement.
 - 512-token truncation; sarcasm, mixed sentiment, and missing context remain hard (see the eval).
 - IG uses 50 integration steps — a principled approximation, not ground truth.
-- The public Space is CPU-only, rate-limited (30 req/min), and serves two models; clone and run
-  locally for the full registry and unthrottled use.
+- AI-text detection is probabilistic, never proof of authorship: short, edited, non-native,
+  highly formal, or mixed-authorship text fools detectors, and on the eval fixture they
+  disagreed on 60% of rows. Every detector response says so verbatim, and the fixture is a
+  single-author teaching set, not a benchmark (see its report).
+- The public Space is CPU-only and rate-limited (30 req/min); it serves five models (two
+  sentiment + three detectors). Clone and run locally for the full registry and unthrottled use.
 
 ## Roadmap
 
-- **Phase 2 — AI text detection.** Local detector models (desklib / fakespot / oxidane) served
-  through dedicated endpoints with detector-disagreement reporting and uncertainty warnings, plus
-  an AI Detector tab. The task-aware registry already carries the detector configs; the serving
-  endpoints and UI ship next.
 - **Docker healthcheck / readiness gate** so the compose frontend waits for model load instead of
   returning cold-start 502s.
+- **A larger, provenance-verified detector evaluation.** The current AI-detection eval is a small,
+  single-author teaching fixture (see its report); a genuine benchmark needs large, diverse,
+  genuinely human-authored data.
+
+> **Shipped:** Phase 2 — AI text detection (desklib / fakespot / oxidane detectors, the two
+> `/api/ai-detect*` endpoints with disagreement reporting and a verbatim uncertainty warning, and
+> the AI Detector tab) is live, including on the public Space.
 
 ## Repository layout
 
 ```
 backend/     FastAPI app (routes, schemas, model, task-aware registry) + unit/integration tests
-frontend/    React 19 + Vite + Tailwind v4 SPA (Analyze / Batch / Compare / How it works)
-evals/       Sentiment evaluation harness + committed report
+frontend/    React 19 + Vite + Tailwind v4 SPA (Analyze / Batch / Compare / AI Detector / How it works)
+evals/       Evaluation harnesses + committed reports (sentiment + AI-detector disagreement)
 sample-data/ reviews.csv for the Batch tab demo
 docs/        Screenshots
 docker-compose.yml · Dockerfile.spaces   Compose (nginx + backend) and single-image Space builds

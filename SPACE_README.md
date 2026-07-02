@@ -6,10 +6,13 @@ colorTo: green
 sdk: docker
 app_port: 7860
 pinned: false
-short_description: Educational sentiment analysis with explainability
+short_description: Educational sentiment analysis + AI-text detection
 models:
   - cardiffnlp/twitter-roberta-base-sentiment-latest
   - distilbert/distilbert-base-uncased-finetuned-sst-2-english
+  - desklib/ai-text-detector-v1.01
+  - fakespot-ai/roberta-base-ai-text-detection-v1
+  - Oxidane/tmr-ai-text-detector
 ---
 
 # SentimentScope
@@ -25,13 +28,17 @@ attributions, and side-by-side model comparison.
 - **Batch** — CSV upload with aggregate charts.
 - **Compare** — the same text through different models (3-class social-media
   RoBERTa vs binary SST-2 DistilBERT) to see domain and label-space mismatch.
+- **AI Detector** — one paragraph run through three AI-text detectors at once
+  (desklib / fakespot / oxidane), with a disagreement flag and a verbatim
+  uncertainty warning: detector disagreement *is* the uncertainty signal.
 - **How it works** — a plain-language walkthrough of the pipeline.
 
 ## Public deployment limits
 
 This free CPU Space is rate-limited (30 requests/min per IP) and serves an
-allowlist of two sentiment models. Clone the repo and run it locally
-(docker compose or the dev servers) for the full model registry.
+allowlist of five models — two sentiment models plus all three AI detectors.
+Clone the repo and run it locally (docker compose or the dev servers) for the
+full model registry.
 
 Backend: FastAPI + PyTorch + transformers + captum. Frontend: React + Vite.
 The container serves both — the SPA via FastAPI `StaticFiles`, the API under
