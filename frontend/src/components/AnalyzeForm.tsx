@@ -2,6 +2,7 @@ import { useState } from "react";
 import { analyze, explainText } from "../api";
 import type { AnalyzeResult, ExplainResult } from "../api";
 import ConfidenceBars from "./ConfidenceBars";
+import TokenHeatmap from "./TokenHeatmap";
 
 const LABEL_BADGE: Record<string, string> = {
   negative: "bg-red-100 text-red-700",
@@ -77,8 +78,14 @@ export default function AnalyzeForm() {
             {result.label}
           </span>
           <ConfidenceBars scores={result.scores} />
-          {/* TokenHeatmap renders here after Task 13 */}
-          {explanation && <div data-explanation-slot>{null}</div>}
+          {explanation && (
+            <div className="space-y-1 border-t border-slate-200 pt-4">
+              <p className="text-sm font-medium text-slate-600">
+                Which words drove this prediction (Integrated Gradients):
+              </p>
+              <TokenHeatmap tokens={explanation.tokens} />
+            </div>
+          )}
         </div>
       )}
     </div>
