@@ -7,7 +7,7 @@ for the full project overview, architecture, and deployment topologies.
 
 ```bash
 npm install       # install dependencies
-npm run dev       # Vite dev server (proxies /api -> backend on :8000)
+npm run dev       # Vite dev server (proxies /api -> backend on :8002)
 npm test -- --run # run the vitest suite once
 npm run lint      # oxlint
 npm run build     # type-check (tsc -b) + production build

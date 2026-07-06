@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { Suspense, lazy, useRef, useState } from "react";
 import { analyzeCsv } from "../api";
 import type { BatchResult } from "../api";
-import AggregateCharts from "./AggregateCharts";
+
+const AggregateCharts = lazy(() => import("./AggregateCharts"));
 
 const LABEL_TEXT: Record<string, string> = {
   negative: "text-red-600",
@@ -21,7 +22,7 @@ export default function BatchUpload() {
     setError(null);
     try {
       // The file goes straight to the backend, which owns CSV parsing and
-      // validation — one source of truth for what a valid upload is.
+      // validation, one source of truth for what a valid upload is.
       setResult(await analyzeCsv(file));
     } catch (e) {
       setResult(null);
@@ -54,7 +55,9 @@ export default function BatchUpload() {
 
       {result && (
         <>
-          <AggregateCharts aggregates={result.aggregates} />
+          <Suspense fallback={<p className="text-sm text-slate-500">Preparing aggregate charts...</p>}>
+            <AggregateCharts aggregates={result.aggregates} />
+          </Suspense>
           <div className="max-h-96 overflow-auto rounded-lg border border-slate-200">
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 bg-slate-50">

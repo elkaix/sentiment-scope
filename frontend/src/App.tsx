@@ -6,22 +6,28 @@ import BatchUpload from "./components/BatchUpload";
 import CompareModels from "./components/CompareModels";
 import HowItWorks from "./components/HowItWorks";
 
-const TABS = ["Analyze", "Batch", "Compare Sentiment", "AI Detector", "How it works"] as const;
+const TABS = [
+  "Validate AI",
+  "Analyze Sentiment",
+  "Batch",
+  "Compare Sentiment",
+  "How it works",
+] as const;
 type Tab = (typeof TABS)[number];
 
 // Panels are static JSX, hoisted so the elements are created once.
 const PANELS: Record<Tab, ReactElement> = {
-  Analyze: <AnalyzeForm />,
+  "Validate AI": <AiTextDetector />,
+  "Analyze Sentiment": <AnalyzeForm />,
   Batch: <BatchUpload />,
   "Compare Sentiment": <CompareModels />,
-  "AI Detector": <AiTextDetector />,
   "How it works": <HowItWorks />,
 };
 
 const slug = (t: Tab) => t.toLowerCase().replace(/\W+/g, "-");
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>("Analyze");
+  const [tab, setTab] = useState<Tab>("Validate AI");
   const tabRefs = useRef(new Map<Tab, HTMLButtonElement | null>());
 
   // Roving tabindex per the WAI-ARIA tabs pattern: arrows move selection and
@@ -45,9 +51,7 @@ export default function App() {
           </span>
           <div className="flex flex-wrap items-baseline gap-x-3">
             <h1 className="text-lg font-semibold tracking-tight text-slate-900">SentimentScope</h1>
-            <p className="text-xs text-slate-500">
-              Transformer sentiment analysis with explainability, served locally via FastAPI.
-            </p>
+            <p className="text-xs text-slate-500">AI detection validation service</p>
           </div>
         </div>
       </header>
@@ -62,6 +66,7 @@ export default function App() {
             <button
               key={t}
               role="tab"
+              aria-label={t}
               id={`tab-${slug(t)}`}
               aria-selected={tab === t}
               aria-controls={`panel-${slug(t)}`}

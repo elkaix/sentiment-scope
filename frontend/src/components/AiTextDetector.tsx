@@ -13,22 +13,28 @@ import ConfidenceBars from "./ConfidenceBars";
  *   - when detectors disagree we say so out loud and frame it as uncertainty.
  */
 
-// A generic, formal, hedge-heavy paragraph — the register detectors flag most
-// readily — so the tab demonstrates a real verdict (and likely disagreement)
-// on first load without the user having to hunt for AI-ish text.
+// A generic, formal, hedge-heavy paragraph: the register detectors flag this
+// style readily, so the tab demonstrates likely disagreement without making
+// the user hunt for AI-ish text.
 const DEFAULT_TEXT =
-  "In today's rapidly evolving digital landscape, leveraging cutting-edge solutions is " +
-  "essential for organizations seeking to optimize operational efficiency and drive " +
-  "sustainable, long-term growth across every facet of the enterprise.";
+  "The committee recommends a phased operational rollout, with quarterly controls, " +
+  "cross-functional reporting, and measurable adoption targets for each business unit.";
 
 interface DetectState {
   rows: AiDetectItem[];
   disagreement: boolean;
   warning: string;
+  reviewedText: string;
   error: string | null;
 }
 
-const EMPTY: DetectState = { rows: [], disagreement: false, warning: "", error: null };
+const EMPTY: DetectState = {
+  rows: [],
+  disagreement: false,
+  warning: "",
+  reviewedText: "",
+  error: null,
+};
 
 export default function AiTextDetector() {
   const [text, setText] = useState(DEFAULT_TEXT);
@@ -42,6 +48,7 @@ export default function AiTextDetector() {
         rows: res.results,
         disagreement: res.disagreement,
         warning: res.warning,
+        reviewedText: text,
         error: null,
       };
     } catch (e) {
@@ -57,7 +64,7 @@ export default function AiTextDetector() {
         <p>AI detectors are probabilistic. Treat this as a model signal, not proof of authorship.</p>
         <p>
           <span className="font-mono text-slate-600">P(ai)</span> is each detector's estimated
-          probability that the text is AI-generated — a calibrated-ish score, never a verdict.
+          probability that the text is AI-generated: a calibrated-ish score, never a verdict.
         </p>
       </div>
 
@@ -67,13 +74,13 @@ export default function AiTextDetector() {
           rows={5}
           maxLength={2000}
           aria-label="Text to check for AI authorship"
-          placeholder="Paste text to run through every AI detector…"
+          placeholder="Paste text to run through every AI detector"
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:opacity-50"
+          className="min-h-11 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:opacity-50"
           disabled={isPending || !text.trim()}
         >
           {isPending ? "Detecting…" : "Detect AI text"}
@@ -88,9 +95,11 @@ export default function AiTextDetector() {
 
       {state.rows.length > 0 && (
         <div className="space-y-4">
+          <DetectionHighlight text={state.reviewedText} evidence={state.rows.find(isAiEvidence)} />
+
           {/* Prominent uncertainty callout. Renders the backend's warning
               string verbatim so the disclaimer can never drift from the model
-              that actually ran — a Global Constraint, not fine print. */}
+              that actually ran, a Global Constraint rather than fine print. */}
           <div
             role="note"
             aria-label="Detector uncertainty warning"
@@ -108,7 +117,7 @@ export default function AiTextDetector() {
               className="rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm text-slate-700"
             >
               <span className="font-semibold text-slate-900">Detectors disagree.</span> They reached
-              different verdicts on this text — read that as a strong signal of uncertainty, not a
+              different verdicts on this text. Read that as a strong signal of uncertainty, not a
               tie to break.
             </div>
           )}
@@ -121,6 +130,36 @@ export default function AiTextDetector() {
         </div>
       )}
     </div>
+  );
+}
+
+function isAiEvidence(item: AiDetectItem) {
+  return item.label.toLowerCase() === "ai";
+}
+
+function DetectionHighlight({ text, evidence }: { text: string; evidence: AiDetectItem | undefined }) {
+  if (!evidence) return null;
+
+  return (
+    <section
+      role="region"
+      aria-label="AI-likely highlighted text"
+      className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm font-semibold text-amber-950">AI-likely text</p>
+        <p className="font-mono text-xs tabular-nums text-amber-900">
+          {(evidence.confidence * 100).toFixed(1)}% confidence
+        </p>
+      </div>
+      <mark className="block whitespace-pre-wrap rounded-md bg-amber-100 px-3 py-2 text-base leading-7 text-amber-950">
+        {text}
+      </mark>
+      <p className="text-xs leading-relaxed text-amber-900">
+        Highlight applies to the submitted passage as a whole. This detector does not return
+        word-level authorship evidence.
+      </p>
+    </section>
   );
 }
 

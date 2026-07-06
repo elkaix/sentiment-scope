@@ -8,7 +8,7 @@ SentimentScope is split into a FastAPI backend and a Vite React frontend. Backen
 
 - `docker compose up --build`: build and run the full app at `http://localhost:8080`.
 - `cd backend && pip install -r requirements.txt`: install runtime backend dependencies.
-- `cd backend && uvicorn app.main:app --reload --port 8000`: run the API locally.
+- `cd backend && uvicorn app.main:app --reload --port 8002`: run the API locally.
 - `cd frontend && npm install && npm run dev`: run the Vite dev server at `http://localhost:5173`.
 - `cd frontend && npm run build`: type-check and build the frontend.
 - `cd frontend && npm run lint`: run Oxlint.

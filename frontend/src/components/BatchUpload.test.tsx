@@ -6,18 +6,30 @@ import { analyzeCsv } from "../api";
 
 vi.mock("../api", () => ({ analyzeCsv: vi.fn() }));
 
+const aggregateImportState = vi.hoisted(() => ({ count: 0 }));
+
 // AggregateCharts renders real recharts SVG, which is irrelevant to what
 // BatchUpload itself is responsible for (upload -> loading -> results table
 // / error text). Stub it so these tests exercise BatchUpload's own state
-// machine, not chart rendering fidelity — the latter is covered separately
+// machine, not chart rendering fidelity. The latter is covered separately
 // in AggregateCharts.test.tsx.
-vi.mock("./AggregateCharts", () => ({
-  default: ({ aggregates }: { aggregates: { counts: Record<string, number> } }) => (
-    <div data-testid="aggregate-charts">{JSON.stringify(aggregates.counts)}</div>
-  ),
-}));
+vi.mock("./AggregateCharts", () => {
+  aggregateImportState.count += 1;
+  return {
+    default: ({ aggregates }: { aggregates: { counts: Record<string, number> } }) => (
+      <div data-testid="aggregate-charts">{JSON.stringify(aggregates.counts)}</div>
+    ),
+  };
+});
 
 const csvFile = () => new File(["text\nI love this\nThis is bad"], "sample.csv", { type: "text/csv" });
+
+it("does not load aggregate charts before a batch result exists", () => {
+  render(<BatchUpload />);
+
+  expect(aggregateImportState.count).toBe(0);
+  expect(screen.queryByTestId("aggregate-charts")).not.toBeInTheDocument();
+});
 
 it("uploads a CSV and renders the results table and aggregate charts", async () => {
   vi.mocked(analyzeCsv).mockResolvedValue({
@@ -45,7 +57,7 @@ it("uploads a CSV and renders the results table and aggregate charts", async () 
   expect(screen.getByText("negative")).toBeInTheDocument();
   expect(screen.getByText("80.0%")).toBeInTheDocument();
   expect(screen.getByText("70.0%")).toBeInTheDocument();
-  expect(screen.getByTestId("aggregate-charts")).toBeInTheDocument();
+  expect(await screen.findByTestId("aggregate-charts")).toBeInTheDocument();
   expect(analyzeCsv).toHaveBeenCalledWith(csvFile());
 });
 

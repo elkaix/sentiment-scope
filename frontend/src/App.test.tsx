@@ -44,20 +44,21 @@ beforeEach(() => {
 // initial render inside an awaited act().
 const renderApp = () => act(async () => render(<App />));
 
-it("shows the wordmark and five tabs with Analyze active by default", async () => {
+it("shows the wordmark and opens on the AI validation workspace by default", async () => {
   await renderApp();
 
   expect(screen.getByText("SentimentScope")).toBeInTheDocument();
+  expect(screen.getByText("AI detection validation service")).toBeInTheDocument();
   const tabs = screen.getAllByRole("tab");
-  expect(tabs.map((t) => t.textContent)).toEqual([
-    "Analyze",
+  expect(tabs.map((t) => t.getAttribute("aria-label"))).toEqual([
+    "Validate AI",
+    "Analyze Sentiment",
     "Batch",
     "Compare Sentiment",
-    "AI Detector",
     "How it works",
   ]);
-  expect(screen.getByRole("tab", { name: "Analyze" })).toHaveAttribute("aria-selected", "true");
-  expect(screen.getByPlaceholderText(/type or paste text/i)).toBeVisible();
+  expect(screen.getByRole("tab", { name: "Validate AI" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("textbox", { name: /text to check for ai authorship/i })).toBeVisible();
 });
 
 it("switches the visible panel when a tab is clicked", async () => {
@@ -66,7 +67,7 @@ it("switches the visible panel when a tab is clicked", async () => {
 
   await user.click(screen.getByRole("tab", { name: "Compare Sentiment" }));
   expect(await screen.findByRole("button", { name: "Compare models" })).toBeVisible();
-  expect(screen.getByPlaceholderText(/type or paste text/i)).not.toBeVisible();
+  expect(screen.getByRole("tab", { name: "Compare Sentiment" })).toHaveAttribute("aria-selected", "true");
 
   await user.click(screen.getByRole("tab", { name: "How it works" }));
   expect(await screen.findByRole("heading", { name: /tokenization/i })).toBeVisible();
@@ -76,9 +77,10 @@ it("preserves in-progress tab state when switching away and back", async () => {
   const user = userEvent.setup();
   await renderApp();
 
+  await user.click(screen.getByRole("tab", { name: "Analyze Sentiment" }));
   await user.type(screen.getByPlaceholderText(/type or paste text/i), "battery life is incredible");
   await user.click(screen.getByRole("tab", { name: "How it works" }));
-  await user.click(screen.getByRole("tab", { name: "Analyze" }));
+  await user.click(screen.getByRole("tab", { name: "Analyze Sentiment" }));
 
   expect(screen.getByPlaceholderText(/type or paste text/i)).toHaveValue("battery life is incredible");
 });

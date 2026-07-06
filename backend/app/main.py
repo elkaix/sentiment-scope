@@ -1,7 +1,7 @@
 """FastAPI application entrypoint.
 
 Run locally (inside the `ai` conda env):
-    uvicorn app.main:app --reload --port 8000
+    uvicorn app.main:app --reload --port 8002
 """
 
 import os

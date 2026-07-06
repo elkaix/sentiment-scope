@@ -1,12 +1,25 @@
+<p align="center">
+  <img src="docs/readme-banner.svg" alt="SentimentScope AI and sentiment model evaluation workbench" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://melkholy-sentiment-scope.hf.space"><img alt="Live demo" src="https://img.shields.io/badge/live%20demo-Hugging%20Face-f3bf3f?style=for-the-badge&logo=huggingface&logoColor=111827"></a>
+  <a href="https://github.com/elkaix/sentiment-scope/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/elkaix/sentiment-scope/ci.yml?branch=main&style=for-the-badge&label=CI&color=1f6f5b"></a>
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.13-276f8f?style=for-the-badge&logo=python&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-API-1f6f5b?style=for-the-badge&logo=fastapi&logoColor=white">
+  <img alt="React" src="https://img.shields.io/badge/React-19-254f73?style=for-the-badge&logo=react&logoColor=white">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-ready-2f6f91?style=for-the-badge&logo=docker&logoColor=white">
+</p>
+
 # SentimentScope
 
-**[▶ Live demo — melkholy-sentiment-scope.hf.space](https://melkholy-sentiment-scope.hf.space)** · [Hugging Face Space](https://huggingface.co/spaces/melkholy/sentiment-scope)
+**[Live demo: melkholy-sentiment-scope.hf.space](https://melkholy-sentiment-scope.hf.space)** | [Hugging Face Space](https://huggingface.co/spaces/melkholy/sentiment-scope)
 
-An educational, end-to-end ML engineering app: a React UI talking to a FastAPI
-backend that serves transformer sentiment models locally — with token-level
-**Integrated Gradients explainability**, model comparison, **AI-text detection with
-detector disagreement**, evaluation metrics, error analysis, batch CSV analysis,
-tests, Docker, and CI.
+SentimentScope is a portfolio-grade AI/ML engineering app: a React UI talking to
+a FastAPI backend that serves transformer sentiment models locally, with
+token-level **Integrated Gradients explainability**, model comparison,
+**AI-text detection with detector disagreement**, evaluation metrics, error
+analysis, batch CSV analysis, tests, Docker, and CI.
 
 Built as an AI/ML portfolio project: the code is deliberately over-commented,
 teaching the *why* of each step (tokenization → logits → softmax, GPU batching,
@@ -87,11 +100,11 @@ docker compose up --build
 ```bash
 # Backend — any env with torch + transformers + captum + fastapi
 cd backend && pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8002
 
 # Frontend
 cd frontend && npm install && npm run dev
-# → http://localhost:5173 (Vite proxies /api to :8000)
+# → http://localhost:5173 (Vite proxies /api to :8002)
 ```
 
 Try it: upload `sample-data/reviews.csv` on the **Batch** tab, then run **Compare
