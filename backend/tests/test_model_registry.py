@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app import model_registry
 from app.model_registry import (
     ModelConfig,
     ModelTask,
@@ -33,12 +34,14 @@ def test_resolve_model_source_falls_back_to_hub_name_when_local_path_missing():
     assert resolve_model_source(cfg) == "hf/name"
 
 
-def test_resolve_model_source_uses_local_dir_when_present():
-    # twitter-roberta weights exist locally in this repo; the resolver must
-    # prefer the on-disk copy (an absolute path ending in the local_path).
+def test_resolve_model_source_uses_local_dir_when_present(tmp_path, monkeypatch):
+    local_path = "models/twitter-roberta-base-sentiment-latest"
+    (tmp_path / local_path).mkdir(parents=True)
+    monkeypatch.setattr(model_registry, "_REPO_ROOT", tmp_path)
+
     cfg = get_model_config("twitter-roberta")
     source = resolve_model_source(cfg)
-    assert source.endswith("models/twitter-roberta-base-sentiment-latest")
+    assert source.endswith(local_path)
     assert source != cfg.name
 
 

@@ -25,6 +25,18 @@ Built as an AI/ML portfolio project: the code is deliberately over-commented,
 teaching the *why* of each step (tokenization → logits → softmax, GPU batching,
 IG attribution) alongside the *what*.
 
+## Recruiter scan
+
+| Signal | Evidence in this repo |
+|---|---|
+| ML inference depth | Raw Hugging Face `AutoModelForSequenceClassification` calls, explicit tokenization, batching, softmax, device selection, and task-aware model registry |
+| Explainability | Captum Layer Integrated Gradients over RoBERTa embeddings with per-token UI heatmaps |
+| Model evaluation | Sentiment eval report with accuracy, macro F1, confusion matrix, latency percentiles, and misclassified examples |
+| AI detection | Three detector models, `{human, ai}` score distributions, disagreement reporting, and a visible uncertainty warning |
+| Backend engineering | FastAPI validation, dependency-injected models for tests, lazy model loading, per-model locks, public deployment guardrails |
+| Frontend engineering | React 19, Vite, TypeScript, Tailwind v4, lazy chart loading, component tests, accessible tab workflow |
+| Deployment | Docker Compose for local full-stack runs, single-container Hugging Face Space image, GitHub Actions CI |
+
 ![Analyze tab: 3-class confidence bars plus a per-token Integrated Gradients heatmap](docs/screenshots/analyze-explain.png)
 
 ## Architecture

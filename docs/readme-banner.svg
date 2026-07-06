@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
   <title id="title">SentimentScope AI and sentiment model evaluation workbench</title>
-  <desc id="desc">A clean portfolio banner for a FastAPI and React machine learning project with sentiment analysis, explainability, model comparison, and AI text detection.</desc>
+  <desc id="desc">A portfolio banner for a FastAPI and React machine learning system with deployed inference, explainability, evaluation, and AI text detection.</desc>
   <defs>
     <linearGradient id="surface" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#f8faf9"/>
@@ -28,25 +28,25 @@
 
   <g transform="translate(220 64)">
     <text x="0" y="0" fill="#172033" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="56" font-weight="800" letter-spacing="-1">SentimentScope</text>
-    <text x="0" y="44" fill="#506178" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24" font-weight="500">AI and sentiment model evaluation workbench</text>
+    <text x="0" y="44" fill="#506178" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24" font-weight="500">deployed ML inference, evals, explainability</text>
     <rect x="0" y="78" width="454" height="10" rx="5" fill="url(#accent)"/>
   </g>
 
   <g transform="translate(72 222)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">
     <g>
       <rect width="204" height="70" rx="16" fill="#f9fbfa" stroke="#c8d6d1"/>
-      <text x="22" y="29" fill="#6a7789" font-size="15" font-weight="700">TASKS</text>
+      <text x="22" y="29" fill="#6a7789" font-size="15" font-weight="700">MODELS</text>
       <text x="22" y="54" fill="#172033" font-weight="700">sentiment + AI</text>
     </g>
     <g transform="translate(228 0)">
       <rect width="214" height="70" rx="16" fill="#f9fbfa" stroke="#c8d6d1"/>
-      <text x="22" y="29" fill="#6a7789" font-size="15" font-weight="700">STACK</text>
+      <text x="22" y="29" fill="#6a7789" font-size="15" font-weight="700">SYSTEM</text>
       <text x="22" y="54" fill="#172033" font-weight="700">FastAPI + React</text>
     </g>
     <g transform="translate(466 0)">
       <rect width="252" height="70" rx="16" fill="#f9fbfa" stroke="#c8d6d1"/>
-      <text x="22" y="29" fill="#6a7789" font-size="15" font-weight="700">ML SIGNALS</text>
-      <text x="22" y="54" fill="#172033" font-weight="700">IG + disagreement</text>
+      <text x="22" y="29" fill="#6a7789" font-size="15" font-weight="700">EVIDENCE</text>
+      <text x="22" y="54" fill="#172033" font-weight="700">IG + eval reports</text>
     </g>
   </g>
 
